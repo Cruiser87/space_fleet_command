@@ -346,7 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Could add context menu here later
   });
 
-  // Galaxy canvas — click to select ships or warp to destination
+  // Galaxy canvas — single click: warp selected ship, or view system
   const galaxyCanvas = document.getElementById('galaxy-canvas');
   galaxyCanvas.addEventListener('click', (e) => {
     if (currentView !== 'galaxy') return;
@@ -358,25 +358,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const sys = renderer.getGalaxySystemAt(x, y, galaxyData);
     if (!sys) return;
 
-    const myShipsHere = (sys.playerShips && sys.playerShips[playerState.id]) || 0;
-
-    if (selectedShipId && myShipsHere === 0) {
-      // Ship is selected and clicked a system with none of our ships — warp there
+    if (selectedShipId) {
+      // Ship is selected — warp it to the clicked system
       socket.emit('warpShipTo', { shipId: selectedShipId, targetSystemId: sys.id });
-    } else if (myShipsHere > 0) {
-      // System has our ships — view it and let user pick a ship from the list
-      socket.emit('viewSystem', sys.id);
-      showSystemView();
-      addLog(`Viewing ${sys.name} — select a ship to send.`, 'info');
     } else {
-      // No ships selected, no ships here — just view the system
+      // No ship selected — view the system
       socket.emit('viewSystem', sys.id);
       showSystemView();
-      addLog(`Viewing ${sys.name} system.`, 'info');
+      addLog(`Viewing ${sys.name} system. Select a ship first to warp.`, 'info');
     }
   });
 
-  // Double-click galaxy — always view system
+  // Double-click galaxy — always view system (even if ship selected)
   galaxyCanvas.addEventListener('dblclick', (e) => {
     if (currentView !== 'galaxy') return;
 
