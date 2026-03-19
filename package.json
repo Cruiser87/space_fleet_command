@@ -1,0 +1,17 @@
+{
+  "name": "space_fleet_command",
+  "version": "0.1.0",
+  "description": "Multiplayer real-time space strategy game inspired by Star Trek Fleet Command",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "keywords": ["game", "multiplayer", "space", "strategy"],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "uuid": "^9.0.0"
+  }
+}

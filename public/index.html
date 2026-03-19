@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Space Fleet Command</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- LOGIN SCREEN -->
+  <div id="login-screen">
+    <div class="login-box">
+      <h1 class="game-title">SPACE FLEET<br>COMMAND</h1>
+      <div class="login-subtitle">Take command of your fleet</div>
+      <input type="text" id="player-name" placeholder="Enter Commander Name" maxlength="20" autofocus>
+      <button id="join-btn" onclick="joinGame()">LAUNCH</button>
+    </div>
+    <div class="stars-bg" id="stars-bg"></div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game-screen" style="display:none;">
+    <!-- Top Bar -->
+    <div id="top-bar">
+      <div id="player-info">
+        <span id="player-name-display"></span>
+      </div>
+      <div id="resources-bar">
+        <span class="resource" title="Parsteel"><span class="res-icon" style="color:#E67E22">&#9670;</span> <span id="res-parsteel">0</span></span>
+        <span class="resource" title="Tritanium"><span class="res-icon" style="color:#8B8B8B">&#9670;</span> <span id="res-tritanium">0</span></span>
+        <span class="resource" title="Dilithium"><span class="res-icon" style="color:#9B59B6">&#9670;</span> <span id="res-dilithium">0</span></span>
+        <span class="resource" title="Plasma"><span class="res-icon" style="color:#E74C3C">&#9670;</span> <span id="res-plasma">0</span></span>
+        <span class="resource" title="Latinum"><span class="res-icon" style="color:#F1C40F">&#9670;</span> <span id="res-latinum">0</span></span>
+      </div>
+      <div id="view-toggle">
+        <button id="btn-galaxy-view" class="view-btn active" onclick="showGalaxyView()">Galaxy Map</button>
+        <button id="btn-system-view" class="view-btn" onclick="showSystemView()">System View</button>
+      </div>
+    </div>
+
+    <!-- Main Game Area -->
+    <div id="game-area">
+      <!-- Galaxy Map Canvas -->
+      <canvas id="galaxy-canvas" width="800" height="600" style="display:none;"></canvas>
+
+      <!-- System View Canvas -->
+      <canvas id="system-canvas" width="800" height="600"></canvas>
+    </div>
+
+    <!-- Bottom Panel -->
+    <div id="bottom-panel">
+      <!-- Ship List -->
+      <div id="ship-list-panel">
+        <h3>Your Ships</h3>
+        <div id="ship-list"></div>
+      </div>
+
+      <!-- Selected Ship Info -->
+      <div id="ship-info-panel" style="display:none;">
+        <h3 id="ship-info-title">Ship Info</h3>
+        <div id="ship-stats"></div>
+        <div id="ship-actions"></div>
+      </div>
+
+      <!-- Action Log -->
+      <div id="log-panel">
+        <h3>Log</h3>
+        <div id="log-messages"></div>
+      </div>
+    </div>
+
+    <!-- Side Panel (Starbase / Build / Upgrade) -->
+    <div id="side-panel" style="display:none;">
+      <div id="side-panel-header">
+        <h3 id="side-panel-title">Panel</h3>
+        <button class="close-btn" onclick="closeSidePanel()">&times;</button>
+      </div>
+      <div id="side-panel-content"></div>
+    </div>
+
+    <!-- System Info Overlay -->
+    <div id="system-info-overlay" style="display:none;">
+      <div id="system-info-name"></div>
+      <div id="system-info-type"></div>
+      <div id="system-info-details"></div>
+    </div>
+
+    <!-- Quick Actions Bar -->
+    <div id="quick-actions">
+      <button onclick="openStarbase()" title="Starbase">&#127759; Starbase</button>
+      <button onclick="openBuildMenu()" title="Build Ships">&#128296; Build</button>
+      <button onclick="openUpgradeMenu()" title="Upgrade Ship">&#11014; Upgrade</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
