@@ -178,11 +178,11 @@ function updateSystemOverlay() {
 // --- Resource Display ---
 function updateResourceDisplay() {
   if (!playerState) return;
-  document.getElementById('res-parsteel').textContent = formatNum(playerState.resources.parsteel);
-  document.getElementById('res-tritanium').textContent = formatNum(playerState.resources.tritanium);
-  document.getElementById('res-dilithium').textContent = formatNum(playerState.resources.dilithium);
-  document.getElementById('res-plasma').textContent = formatNum(playerState.resources.plasma);
-  document.getElementById('res-latinum').textContent = formatNum(playerState.resources.latinum);
+  document.getElementById('res-stellite').textContent = formatNum(playerState.resources.stellite);
+  document.getElementById('res-ferronite').textContent = formatNum(playerState.resources.ferronite);
+  document.getElementById('res-nexium').textContent = formatNum(playerState.resources.nexium);
+  document.getElementById('res-pyrathium').textContent = formatNum(playerState.resources.pyrathium);
+  document.getElementById('res-aurelium').textContent = formatNum(playerState.resources.aurelium);
 }
 
 function formatNum(n) {
@@ -492,8 +492,8 @@ function openStarbase() {
   const content = document.getElementById('side-panel-content');
   let html = '<div class="starbase-info"><h4>Resources</h4><div class="starbase-resources">';
 
-  const resNames = { parsteel: 'Parsteel', tritanium: 'Tritanium', dilithium: 'Dilithium', plasma: 'Plasma', latinum: 'Latinum' };
-  const resColors = { parsteel: '#E67E22', tritanium: '#8B8B8B', dilithium: '#9B59B6', plasma: '#E74C3C', latinum: '#F1C40F' };
+  const resNames = { stellite: 'Stellite', ferronite: 'Ferronite', nexium: 'Nexium', pyrathium: 'Pyrathium', aurelium: 'Aurelium' };
+  const resColors = { stellite: '#E67E22', ferronite: '#8B8B8B', nexium: '#9B59B6', pyrathium: '#E74C3C', aurelium: '#F1C40F' };
 
   for (const [key, name] of Object.entries(resNames)) {
     const amount = Math.floor(playerState.resources[key] || 0);

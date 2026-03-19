@@ -171,11 +171,11 @@ class Renderer {
 
   drawMiningNode(ctx, node) {
     const resourceColors = {
-      parsteel: '#E67E22',
-      tritanium: '#8B8B8B',
-      dilithium: '#9B59B6',
-      plasma: '#E74C3C',
-      latinum: '#F1C40F',
+      stellite: '#E67E22',
+      ferronite: '#8B8B8B',
+      nexium: '#9B59B6',
+      pyrathium: '#E74C3C',
+      aurelium: '#F1C40F',
     };
 
     const color = resourceColors[node.resource] || '#ffffff';
