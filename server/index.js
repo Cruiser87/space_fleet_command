@@ -91,6 +91,25 @@ io.on('connection', (socket) => {
     }
   });
 
+  // --- WARP SHIP TO (multi-hop) ---
+  socket.on('warpShipTo', (data) => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+
+    const result = engine.warpShipToSystem(player.id, data.shipId, data.targetSystemId);
+    socket.emit('warpResult', { shipId: data.shipId, ...result });
+
+    if (result.success) {
+      io.emit('galaxyUpdate', engine.getGalaxyMap());
+      // Update galaxy map after each hop and at final arrival
+      const totalTime = (result.jumps * 2000) + ((result.jumps - 1) * 500);
+      for (let i = 1; i <= result.jumps; i++) {
+        setTimeout(() => io.emit('galaxyUpdate', engine.getGalaxyMap()), i * 2500);
+      }
+      setTimeout(() => io.emit('galaxyUpdate', engine.getGalaxyMap()), totalTime + 100);
+    }
+  });
+
   // --- START MINING ---
   socket.on('startMining', (data) => {
     const player = engine.getPlayerBySocket(socket.id);

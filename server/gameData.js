@@ -494,6 +494,27 @@ function getWarpDistance(fromId, toId) {
   return Infinity;
 }
 
+// Helper: get shortest warp path between two systems (BFS, returns array of system IDs)
+function getWarpPath(fromId, toId) {
+  if (fromId === toId) return [fromId];
+  const visited = new Set();
+  const queue = [{ id: fromId, path: [fromId] }];
+  visited.add(fromId);
+  while (queue.length > 0) {
+    const { id, path } = queue.shift();
+    const system = STAR_SYSTEMS.find(s => s.id === id);
+    if (!system) continue;
+    for (const connId of system.connections) {
+      if (connId === toId) return [...path, connId];
+      if (!visited.has(connId)) {
+        visited.add(connId);
+        queue.push({ id: connId, path: [...path, connId] });
+      }
+    }
+  }
+  return null; // no path found
+}
+
 // Starter resources for new players
 const STARTER_RESOURCES = {
   stellite: 500,
@@ -514,4 +535,5 @@ module.exports = {
   STARTER_RESOURCES,
   STARTER_SHIPS,
   getWarpDistance,
+  getWarpPath,
 };

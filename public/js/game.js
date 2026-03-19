@@ -79,12 +79,15 @@ function joinGame() {
 
   socket.on('warpResult', (data) => {
     if (data.success) {
-      addLog(`Ship warping to ${data.arrivalSystem.replace(/_/g, ' ')}...`, 'warp');
-      // Switch view to target system after warp
+      const jumps = data.jumps || 1;
+      const dest = data.arrivalSystem.replace(/_/g, ' ');
+      addLog(`Warping to ${dest} (${jumps} jump${jumps > 1 ? 's' : ''})...`, 'warp');
+      // Switch view to target system after all warps complete
+      const arrivalTime = jumps > 1 ? (jumps * 2500) + 100 : 2100;
       setTimeout(() => {
         socket.emit('viewSystem', data.arrivalSystem);
         updateSystemOverlay();
-      }, 2100);
+      }, arrivalTime);
     } else {
       addLog(`Warp failed: ${data.error}`, 'warning');
     }
@@ -343,7 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Could add context menu here later
   });
 
-  // Galaxy canvas — click to view system / warp
+  // Galaxy canvas — click to select ships or warp to destination
   const galaxyCanvas = document.getElementById('galaxy-canvas');
   galaxyCanvas.addEventListener('click', (e) => {
     if (currentView !== 'galaxy') return;
@@ -353,17 +356,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const y = (e.clientY - rect.top) * (galaxyCanvas.height / rect.height);
 
     const sys = renderer.getGalaxySystemAt(x, y, galaxyData);
-    if (sys) {
-      // View this system
+    if (!sys) return;
+
+    const myShipsHere = (sys.playerShips && sys.playerShips[playerState.id]) || 0;
+
+    if (selectedShipId && myShipsHere === 0) {
+      // Ship is selected and clicked a system with none of our ships — warp there
+      socket.emit('warpShipTo', { shipId: selectedShipId, targetSystemId: sys.id });
+    } else if (myShipsHere > 0) {
+      // System has our ships — view it and let user pick a ship from the list
+      socket.emit('viewSystem', sys.id);
+      showSystemView();
+      addLog(`Viewing ${sys.name} — select a ship to send.`, 'info');
+    } else {
+      // No ships selected, no ships here — just view the system
       socket.emit('viewSystem', sys.id);
       showSystemView();
       addLog(`Viewing ${sys.name} system.`, 'info');
     }
   });
 
-  // Double-click galaxy to warp selected ship
+  // Double-click galaxy — always view system
   galaxyCanvas.addEventListener('dblclick', (e) => {
-    if (currentView !== 'galaxy' || !selectedShipId) return;
+    if (currentView !== 'galaxy') return;
 
     const rect = galaxyCanvas.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (galaxyCanvas.width / rect.width);
@@ -371,7 +386,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const sys = renderer.getGalaxySystemAt(x, y, galaxyData);
     if (sys) {
-      socket.emit('warpShip', { shipId: selectedShipId, targetSystemId: sys.id });
+      socket.emit('viewSystem', sys.id);
+      showSystemView();
     }
   });
 });

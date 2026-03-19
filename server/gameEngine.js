@@ -12,7 +12,7 @@
 const { v4: uuidv4 } = require('uuid');
 const {
   SHIP_CLASSES, UPGRADE_TIERS, STAR_SYSTEMS,
-  STARTER_RESOURCES, STARTER_SHIPS, RESOURCES, getWarpDistance,
+  STARTER_RESOURCES, STARTER_SHIPS, RESOURCES, getWarpDistance, getWarpPath,
 } = require('./gameData');
 
 const TICK_RATE = 20;               // server ticks per second
@@ -345,6 +345,72 @@ class GameEngine {
     }, 2000);
 
     return { success: true, arrivalSystem: targetSystemId };
+  }
+
+  // Multi-hop warp: find shortest path and chain warps automatically
+  warpShipToSystem(playerId, shipId, targetSystemId) {
+    const ship = this.ships.get(shipId);
+    if (!ship || ship.playerId !== playerId) return { success: false, error: 'Invalid ship' };
+    if (ship.state === 'combat') return { success: false, error: 'Cannot warp during combat' };
+    if (ship.state === 'warping') return { success: false, error: 'Already warping' };
+    if (ship.isDestroyed) return { success: false, error: 'Ship is destroyed' };
+    if (ship.systemId === targetSystemId) return { success: false, error: 'Already in that system' };
+
+    const path = getWarpPath(ship.systemId, targetSystemId);
+    if (!path) return { success: false, error: 'No route to that system' };
+
+    const jumps = path.length - 1; // number of hops
+    if (jumps > ship.warpRange) {
+      return { success: false, error: `Out of warp range. Need ${jumps} jumps, ship has range ${ship.warpRange}` };
+    }
+
+    // Remove from current system and start warping
+    const fromSystem = this.systems.get(ship.systemId);
+    fromSystem.ships.delete(ship.id);
+    ship.state = 'warping';
+
+    // Chain warps along the path (2 seconds per hop)
+    const hops = path.slice(1); // systems to visit (excluding current)
+    const warpNextHop = (hopIndex) => {
+      if (hopIndex >= hops.length) return;
+
+      const nextSystemId = hops[hopIndex];
+      ship.systemId = nextSystemId;
+
+      setTimeout(() => {
+        const nextSystem = this.systems.get(nextSystemId);
+
+        if (hopIndex === hops.length - 1) {
+          // Final destination
+          nextSystem.ships.add(ship.id);
+          ship.x = 400 + (Math.random() - 0.5) * 100;
+          ship.y = 400 + (Math.random() - 0.5) * 100;
+          ship.state = 'idle';
+          ship.targetX = null;
+          ship.targetY = null;
+        } else {
+          // Passing through — briefly appear then continue
+          nextSystem.ships.add(ship.id);
+          ship.x = 400;
+          ship.y = 400;
+
+          // Remove after a brief moment and continue
+          setTimeout(() => {
+            nextSystem.ships.delete(ship.id);
+            warpNextHop(hopIndex + 1);
+          }, 500);
+        }
+      }, 2000);
+    };
+
+    warpNextHop(0);
+
+    return {
+      success: true,
+      arrivalSystem: targetSystemId,
+      jumps,
+      path: hops,
+    };
   }
 
   // ----------------------------------------------------------
