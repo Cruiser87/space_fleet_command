@@ -1021,6 +1021,13 @@ class GameEngine {
     const player = this.players.get(playerId);
     if (!player) return null;
 
+    // Include full ship snapshots so client can show info for any ship
+    const ships = {};
+    for (const shipId of player.shipIds) {
+      const ship = this.ships.get(shipId);
+      if (ship) ships[shipId] = this.getShipSnapshot(ship);
+    }
+
     return {
       id: player.id,
       name: player.name,
@@ -1028,6 +1035,7 @@ class GameEngine {
       resources: { ...player.resources },
       starbase: { ...player.starbase },
       shipIds: [...player.shipIds],
+      ships,
     };
   }
 

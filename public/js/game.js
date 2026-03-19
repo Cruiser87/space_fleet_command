@@ -212,9 +212,13 @@ function updateShipList() {
 
   for (const shipId of playerState.shipIds) {
     // Find ship in current system state or just show basic info
+    // Try current system first, fall back to player state ship data
     let shipData = null;
     if (currentSystemState) {
       shipData = currentSystemState.ships.find(s => s.id === shipId);
+    }
+    if (!shipData && playerState.ships) {
+      shipData = playerState.ships[shipId];
     }
 
     const div = document.createElement('div');
@@ -252,12 +256,19 @@ function selectShip(shipId) {
 
 function updateShipInfoPanel() {
   const panel = document.getElementById('ship-info-panel');
-  if (!selectedShipId || !currentSystemState) {
+  if (!selectedShipId) {
     panel.style.display = 'none';
     return;
   }
 
-  const ship = currentSystemState.ships.find(s => s.id === selectedShipId);
+  // Try current system first, fall back to player state ship data
+  let ship = null;
+  if (currentSystemState) {
+    ship = currentSystemState.ships.find(s => s.id === selectedShipId);
+  }
+  if (!ship && playerState && playerState.ships) {
+    ship = playerState.ships[selectedShipId];
+  }
   if (!ship) {
     panel.style.display = 'none';
     return;
