@@ -486,6 +486,84 @@ class GameEngine {
     return { success: true, resources: { ...player.resources } };
   }
 
+  // Return a destroyed player ship to their starbase
+  returnShipToStarbase(ship) {
+    const player = this.players.get(ship.playerId);
+    if (!player) {
+      this.removeShip(ship.id);
+      return;
+    }
+
+    // Remove from current system
+    const oldSystem = this.systems.get(ship.systemId);
+    if (oldSystem) oldSystem.ships.delete(ship.id);
+
+    // Move to home system
+    const homeSystem = this.systems.get(player.homeSystemId);
+    ship.systemId = player.homeSystemId;
+    ship.x = 400 + (Math.random() - 0.5) * 60;
+    ship.y = 400 + (Math.random() - 0.5) * 60;
+    ship.targetX = null;
+    ship.targetY = null;
+    ship.combatTarget = null;
+    ship.miningTarget = null;
+    ship.cargo = {};
+
+    // Ship is damaged — needs repair
+    ship.isDestroyed = false;
+    ship.hull = 1;           // barely alive
+    ship.armor = 0;
+    ship.shields = 0;
+    ship.state = 'damaged';  // new state: can't do anything until repaired
+
+    homeSystem.ships.add(ship.id);
+  }
+
+  // Repair a damaged ship at the starbase (costs resources)
+  repairShip(playerId, shipId) {
+    const player = this.players.get(playerId);
+    const ship = this.ships.get(shipId);
+    if (!player || !ship || ship.playerId !== playerId) {
+      return { success: false, error: 'Invalid ship' };
+    }
+    if (ship.systemId !== player.homeSystemId) {
+      return { success: false, error: 'Ship must be at your starbase' };
+    }
+    if (ship.state !== 'damaged' && ship.hull >= ship.maxHull) {
+      return { success: false, error: 'Ship does not need repair' };
+    }
+
+    // Repair cost scales with ship tier — based on the ship's build cost
+    const shipClass = SHIP_CLASSES[ship.classId];
+    if (!shipClass) return { success: false, error: 'Unknown ship class' };
+
+    // Repair cost = 30% of original build cost
+    const repairCost = {};
+    for (const [res, amount] of Object.entries(shipClass.cost)) {
+      repairCost[res] = Math.ceil(amount * 0.3);
+    }
+
+    // Check resources
+    for (const [res, amount] of Object.entries(repairCost)) {
+      if ((player.resources[res] || 0) < amount) {
+        return { success: false, error: `Not enough ${res}. Need ${amount}, have ${Math.floor(player.resources[res] || 0)}` };
+      }
+    }
+
+    // Deduct resources
+    for (const [res, amount] of Object.entries(repairCost)) {
+      player.resources[res] -= amount;
+    }
+
+    // Fully repair ship
+    ship.hull = ship.maxHull;
+    ship.armor = ship.maxArmor;
+    ship.shields = ship.maxShields;
+    ship.state = 'docked';
+
+    return { success: true, cost: repairCost };
+  }
+
   // ----------------------------------------------------------
   // COMBAT
   // ----------------------------------------------------------
@@ -582,8 +660,13 @@ class GameEngine {
         this.onNpcKilled(ship, target);
       }
 
-      // Remove destroyed ship after a delay
-      setTimeout(() => this.removeShip(target.id), 5000);
+      if (target.isNpc) {
+        // Remove destroyed NPC after a delay
+        setTimeout(() => this.removeShip(target.id), 5000);
+      } else {
+        // Player ship destroyed — return to starbase after delay
+        setTimeout(() => this.returnShipToStarbase(target), 3000);
+      }
 
       ship.state = 'idle';
       ship.combatTarget = null;
@@ -699,6 +782,8 @@ class GameEngine {
             const otherShip = this.ships.get(otherShipId);
             if (!otherShip || otherShip.isNpc || otherShip.isDestroyed) continue;
             if (otherShip.state === 'warping' || otherShip.state === 'docked') continue;
+            // Don't aggro mining ships that are actively mining
+            if (otherShip.state === 'mining') continue;
 
             const dx = ship.x - otherShip.x;
             const dy = ship.y - otherShip.y;
@@ -813,7 +898,7 @@ class GameEngine {
     }
 
     for (const ship of this.ships.values()) {
-      if (ship.isDestroyed || ship.state === 'warping' || ship.state === 'docked') continue;
+      if (ship.isDestroyed || ship.state === 'warping' || ship.state === 'docked' || ship.state === 'damaged') continue;
 
       // --- Movement ---
       if (ship.targetX !== null && ship.targetY !== null) {

@@ -109,6 +109,14 @@ function joinGame() {
     }
   });
 
+  socket.on('repairResult', (data) => {
+    if (data.success) {
+      addLog('Ship repaired and ready for duty!', 'info');
+    } else {
+      addLog(`Repair failed: ${data.error}`, 'warning');
+    }
+  });
+
   socket.on('attackResult', (data) => {
     if (data.success) {
       addLog('Engaging target!', 'combat');
@@ -283,22 +291,27 @@ function updateShipInfoPanel() {
   const actions = document.getElementById('ship-actions');
   let actionsHtml = '';
 
-  // Dock button (if in home system)
-  if (playerState && ship.systemId === playerState.homeSystemId) {
-    actionsHtml += `<button class="action-btn" onclick="dockShip('${ship.id}')">Dock</button>`;
-  }
+  if (ship.state === 'damaged') {
+    // Damaged ship — only show repair button
+    actionsHtml += `<button class="action-btn danger" onclick="repairShip('${ship.id}')">Repair (30% build cost)</button>`;
+  } else {
+    // Dock button (if in home system)
+    if (playerState && ship.systemId === playerState.homeSystemId) {
+      actionsHtml += `<button class="action-btn" onclick="dockShip('${ship.id}')">Dock</button>`;
+    }
 
-  // Warp button
-  actionsHtml += `<button class="action-btn" onclick="showWarpMenu('${ship.id}')">Warp</button>`;
+    // Warp button
+    actionsHtml += `<button class="action-btn" onclick="showWarpMenu('${ship.id}')">Warp</button>`;
 
-  // Mining (if mining ship and mining nodes exist)
-  if (ship.miningRate > 0 && currentSystemState.miningNodes.length > 0) {
-    actionsHtml += `<button class="action-btn" onclick="showMiningMenu('${ship.id}')">Mine</button>`;
-  }
+    // Mining (if mining ship and mining nodes exist)
+    if (ship.miningRate > 0 && currentSystemState.miningNodes.length > 0) {
+      actionsHtml += `<button class="action-btn" onclick="showMiningMenu('${ship.id}')">Mine</button>`;
+    }
 
-  // Stop
-  if (ship.state === 'mining' || ship.state === 'moving') {
-    actionsHtml += `<button class="action-btn" onclick="stopShip('${ship.id}')">Stop</button>`;
+    // Stop
+    if (ship.state === 'mining' || ship.state === 'moving') {
+      actionsHtml += `<button class="action-btn" onclick="stopShip('${ship.id}')">Stop</button>`;
+    }
   }
 
   actions.innerHTML = actionsHtml;
@@ -398,6 +411,10 @@ function stopShip(shipId) {
   if (ship) {
     socket.emit('moveShip', { shipId, x: ship.x, y: ship.y });
   }
+}
+
+function repairShip(shipId) {
+  socket.emit('repairShip', { shipId });
 }
 
 function showWarpMenu(shipId) {

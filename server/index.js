@@ -149,6 +149,17 @@ io.on('connection', (socket) => {
     }
   });
 
+  // --- REPAIR SHIP ---
+  socket.on('repairShip', (data) => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const result = engine.repairShip(player.id, data.shipId);
+    socket.emit('repairResult', { shipId: data.shipId, ...result });
+    if (result.success) {
+      socket.emit('playerUpdate', engine.getPlayerState(player.id));
+    }
+  });
+
   // --- UPGRADE SHIP ---
   socket.on('upgradeShip', (data) => {
     const player = engine.getPlayerBySocket(socket.id);

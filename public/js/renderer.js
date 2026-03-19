@@ -330,6 +330,21 @@ class Renderer {
       ctx.fillText(`${ship.kills} kills`, x, y - 28);
     }
 
+    // Damaged indicator
+    if (ship.state === 'damaged') {
+      ctx.fillStyle = '#e74c3c';
+      ctx.font = 'bold 10px "Segoe UI", sans-serif';
+      ctx.fillText('DAMAGED', x, y - 28);
+      // Flashing red ring
+      if (Math.floor(Date.now() / 500) % 2 === 0) {
+        ctx.strokeStyle = '#e74c3c';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, 18, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
     // Health bars
     this.drawHealthBars(ctx, x, y + 14, ship);
 

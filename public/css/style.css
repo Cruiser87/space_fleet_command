@@ -270,6 +270,7 @@ canvas {
 .ship-item .ship-state.combat { color: #e74c3c; }
 .ship-item .ship-state.warping { color: #9b59b6; }
 .ship-item .ship-state.moving { color: #f39c12; }
+.ship-item .ship-state.damaged { color: #e74c3c; font-weight: bold; }
 
 /* Ship Info Panel */
 #ship-info-panel {
