@@ -171,7 +171,7 @@ class Renderer {
   // SYSTEM VIEW
   // ----------------------------------------------------------
 
-  drawSystemView(systemState, playerId, selectedShipId) {
+  drawSystemView(systemState, playerId, selectedShipId, homeSystemId) {
     const ctx = this.systemCtx;
     const w = this.systemCanvas.width;
     const h = this.systemCanvas.height;
@@ -180,8 +180,10 @@ class Renderer {
 
     if (!systemState) return;
 
-    // Draw system name and type at top
-    // (handled by overlay in HTML)
+    // Draw starbase if this is the player's home system
+    if (homeSystemId && systemState.id === homeSystemId) {
+      this.drawStarbase(ctx, 400, 520);
+    }
 
     // Draw mining nodes (planets)
     for (const node of systemState.miningNodes || []) {
@@ -194,6 +196,67 @@ class Renderer {
       const isSelected = ship.id === selectedShipId;
       this.drawShip(ctx, ship, isOwn, isSelected);
     }
+  }
+
+  drawStarbase(ctx, x, y) {
+    // Outer glow
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, 50);
+    gradient.addColorStop(0, 'rgba(241, 196, 15, 0.15)');
+    gradient.addColorStop(1, 'transparent');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, 50, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Base platform (hexagon)
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = '#1a2a3a';
+    ctx.strokeStyle = '#f1c40f';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 3) * i - Math.PI / 6;
+      const px = Math.cos(angle) * 22;
+      const py = Math.sin(angle) * 22;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Inner ring
+    ctx.strokeStyle = 'rgba(241, 196, 15, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Center dot
+    ctx.fillStyle = '#f1c40f';
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Antenna spokes
+    ctx.strokeStyle = 'rgba(241, 196, 15, 0.6)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) {
+      const angle = (Math.PI / 2) * i;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle) * 12, Math.sin(angle) * 12);
+      ctx.lineTo(Math.cos(angle) * 28, Math.sin(angle) * 28);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+
+    // Label
+    ctx.fillStyle = '#f1c40f';
+    ctx.font = 'bold 11px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('STARBASE', x, y + 36);
   }
 
   drawMiningNode(ctx, node) {

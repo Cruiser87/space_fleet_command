@@ -13,12 +13,25 @@ let currentView = 'system'; // 'galaxy' or 'system'
 let shipClasses = {};
 let upgradeTiers = {};
 
+// --- Helper: get ship data from any source ---
+function getShipData(shipId) {
+  // Try current system view first (most up-to-date position data)
+  if (currentSystemState) {
+    const found = currentSystemState.ships.find(s => s.id === shipId);
+    if (found) return found;
+  }
+  // Fall back to player state (has all owned ships regardless of system)
+  if (playerState && playerState.ships && playerState.ships[shipId]) {
+    return playerState.ships[shipId];
+  }
+  return null;
+}
+
 // --- Initialize ---
 window.addEventListener('DOMContentLoaded', () => {
   renderer = new Renderer();
   renderer.drawLoginStars();
 
-  // Enter key to join
   document.getElementById('player-name').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') joinGame();
   });
@@ -43,7 +56,6 @@ function joinGame() {
     shipClasses = data.shipClasses;
     upgradeTiers = data.upgradeTiers;
 
-    // Switch to game screen
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'flex';
     document.getElementById('player-name-display').textContent = playerState.name;
@@ -52,9 +64,8 @@ function joinGame() {
     updateShipList();
     showSystemView();
     addLog('Welcome, ' + playerState.name + '! Your fleet awaits.', 'info');
-    addLog('You are stationed in the ' + playerState.homeSystemId.replace(/_/g, ' ').toUpperCase() + ' system.', 'info');
+    addLog('Left-click ships to select. Right-click for actions.', 'info');
 
-    // Start render loop
     requestAnimationFrame(gameLoop);
   });
 
@@ -71,6 +82,8 @@ function joinGame() {
     playerState = state;
     updateResourceDisplay();
     updateShipList();
+    // Refresh ship info panel if a ship is selected
+    if (selectedShipId) updateShipInfoPanel();
   });
 
   socket.on('galaxyUpdate', (data) => {
@@ -82,11 +95,9 @@ function joinGame() {
       const jumps = data.jumps || 1;
       const dest = data.arrivalSystem.replace(/_/g, ' ');
       addLog(`Warping to ${dest} (${jumps} jump${jumps > 1 ? 's' : ''})...`, 'warp');
-      // Switch view to target system after all warps complete
       const arrivalTime = jumps > 1 ? (jumps * 2500) + 100 : 2100;
       setTimeout(() => {
         socket.emit('viewSystem', data.arrivalSystem);
-        updateSystemOverlay();
       }, arrivalTime);
     } else {
       addLog(`Warp failed: ${data.error}`, 'warning');
@@ -112,6 +123,7 @@ function joinGame() {
   socket.on('repairResult', (data) => {
     if (data.success) {
       addLog('Ship repaired and ready for duty!', 'info');
+      updateShipInfoPanel();
     } else {
       addLog(`Repair failed: ${data.error}`, 'warning');
     }
@@ -138,7 +150,7 @@ function joinGame() {
     if (data.success) {
       addLog(`${data.component} upgraded to tier ${data.tier}!`, 'info');
       if (selectedShipId) updateShipInfoPanel();
-      openUpgradeMenu(); // Refresh
+      openUpgradeMenu();
     } else {
       addLog(`Upgrade failed: ${data.error}`, 'warning');
     }
@@ -150,7 +162,7 @@ function gameLoop() {
   if (currentView === 'galaxy') {
     renderer.drawGalaxyMap(galaxyData, playerState?.homeSystemId, playerState?.id);
   } else {
-    renderer.drawSystemView(currentSystemState, playerState?.id, selectedShipId);
+    renderer.drawSystemView(currentSystemState, playerState?.id, selectedShipId, playerState?.homeSystemId);
   }
   requestAnimationFrame(gameLoop);
 }
@@ -163,6 +175,7 @@ function showGalaxyView() {
   document.getElementById('btn-galaxy-view').classList.add('active');
   document.getElementById('btn-system-view').classList.remove('active');
   document.getElementById('system-info-overlay').style.display = 'none';
+  closeContextMenu();
 }
 
 function showSystemView() {
@@ -172,6 +185,7 @@ function showSystemView() {
   document.getElementById('btn-galaxy-view').classList.remove('active');
   document.getElementById('btn-system-view').classList.add('active');
   updateSystemOverlay();
+  closeContextMenu();
 }
 
 function updateSystemOverlay() {
@@ -182,8 +196,10 @@ function updateSystemOverlay() {
   const typeEl = document.getElementById('system-info-type');
   typeEl.textContent = currentSystemState.type === 'safe' ? 'SAFE ZONE' : 'DANGER ZONE - PVP';
   typeEl.className = currentSystemState.type;
+  const npcCount = currentSystemState.ships.filter(s => s.isNpc).length;
+  const playerCount = currentSystemState.ships.filter(s => !s.isNpc).length;
   document.getElementById('system-info-details').textContent =
-    `Level ${currentSystemState.level} • ${currentSystemState.ships.length} ships • ${currentSystemState.miningNodes.length} planets`;
+    `Level ${currentSystemState.level} • ${playerCount} players • ${npcCount} hostiles • ${currentSystemState.miningNodes.length} planets`;
 }
 
 // --- Resource Display ---
@@ -211,15 +227,7 @@ function updateShipList() {
   container.innerHTML = '';
 
   for (const shipId of playerState.shipIds) {
-    // Find ship in current system state or just show basic info
-    // Try current system first, fall back to player state ship data
-    let shipData = null;
-    if (currentSystemState) {
-      shipData = currentSystemState.ships.find(s => s.id === shipId);
-    }
-    if (!shipData && playerState.ships) {
-      shipData = playerState.ships[shipId];
-    }
+    const shipData = getShipData(shipId);
 
     const div = document.createElement('div');
     div.className = 'ship-item' + (shipId === selectedShipId ? ' selected' : '');
@@ -252,6 +260,13 @@ function selectShip(shipId) {
   selectedShipId = shipId;
   updateShipList();
   updateShipInfoPanel();
+
+  // If the ship is in a different system, auto-switch to view it
+  const ship = getShipData(shipId);
+  if (ship && currentSystemState && ship.systemId !== currentSystemState.id) {
+    socket.emit('viewSystem', ship.systemId);
+    if (currentView === 'galaxy') showSystemView();
+  }
 }
 
 function updateShipInfoPanel() {
@@ -261,14 +276,7 @@ function updateShipInfoPanel() {
     return;
   }
 
-  // Try current system first, fall back to player state ship data
-  let ship = null;
-  if (currentSystemState) {
-    ship = currentSystemState.ships.find(s => s.id === selectedShipId);
-  }
-  if (!ship && playerState && playerState.ships) {
-    ship = playerState.ships[selectedShipId];
-  }
+  const ship = getShipData(selectedShipId);
   if (!ship) {
     panel.style.display = 'none';
     return;
@@ -279,8 +287,6 @@ function updateShipInfoPanel() {
 
   const stats = document.getElementById('ship-stats');
   const hullPct = Math.round((ship.hull / ship.maxHull) * 100);
-  const armorPct = Math.round((ship.armor / ship.maxArmor) * 100);
-  const shieldPct = ship.maxShields > 0 ? Math.round((ship.shields / ship.maxShields) * 100) : 0;
   const totalCargo = Math.floor(Object.values(ship.cargo || {}).reduce((a, b) => a + b, 0));
 
   stats.innerHTML = `
@@ -298,31 +304,23 @@ function updateShipInfoPanel() {
     <div class="stat-row"><span>Power</span><span class="stat-val ${ship.powerBonus > 0 ? 'high' : ''}">${ship.powerBonus ? '+' + Math.round(ship.powerBonus * 100) + '%' : '--'}</span></div>
   `;
 
-  // Actions
   const actions = document.getElementById('ship-actions');
   let actionsHtml = '';
 
   if (ship.state === 'damaged') {
-    // Damaged ship — only show repair button
     actionsHtml += `<button class="action-btn danger" onclick="repairShip('${ship.id}')">Repair (30% build cost)</button>`;
   } else {
-    // Dock button (if in home system)
     if (playerState && ship.systemId === playerState.homeSystemId) {
       actionsHtml += `<button class="action-btn" onclick="dockShip('${ship.id}')">Dock</button>`;
     }
-
-    // Warp button
-    actionsHtml += `<button class="action-btn" onclick="showWarpMenu('${ship.id}')">Warp</button>`;
-
-    // Mining (if mining ship and mining nodes exist)
-    if (ship.miningRate > 0 && currentSystemState.miningNodes.length > 0) {
+    actionsHtml += `<button class="action-btn" onclick="showGalaxyView(); addLog('Click a star to warp ${ship.className} there.', 'info')">Warp</button>`;
+    if (ship.miningRate > 0 && currentSystemState && currentSystemState.miningNodes.length > 0 && ship.systemId === currentSystemState.id) {
       actionsHtml += `<button class="action-btn" onclick="showMiningMenu('${ship.id}')">Mine</button>`;
     }
-
-    // Stop
     if (ship.state === 'mining' || ship.state === 'moving') {
       actionsHtml += `<button class="action-btn" onclick="stopShip('${ship.id}')">Stop</button>`;
     }
+    actionsHtml += `<button class="action-btn" onclick="recallShip('${ship.id}')">Recall</button>`;
   }
 
   actions.innerHTML = actionsHtml;
@@ -331,14 +329,26 @@ function updateShipInfoPanel() {
 // --- Canvas Click Handling ---
 
 document.addEventListener('DOMContentLoaded', () => {
-  // System canvas — move ships / select ships
   const systemCanvas = document.getElementById('system-canvas');
+
+  // LEFT CLICK — select own ships, move selected ship, or click starbase
   systemCanvas.addEventListener('click', (e) => {
     if (currentView !== 'system' || !currentSystemState) return;
+    closeContextMenu();
 
     const rect = systemCanvas.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (systemCanvas.width / rect.width);
     const y = (e.clientY - rect.top) * (systemCanvas.height / rect.height);
+
+    // Check if clicking on starbase (drawn at center-bottom of home system)
+    if (playerState && currentSystemState.id === playerState.homeSystemId) {
+      const sbX = 400, sbY = 520;
+      const dx = x - sbX, dy = y - sbY;
+      if (Math.sqrt(dx * dx + dy * dy) < 30) {
+        openStarbase();
+        return;
+      }
+    }
 
     // Check if clicking on a ship
     for (const ship of currentSystemState.ships) {
@@ -348,8 +358,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ship.playerId === playerState.id) {
           selectShip(ship.id);
         } else if (selectedShipId) {
-          // Clicked NPC or enemy ship — attack with selected ship
-          // NPCs can be attacked anywhere; players only in PVP zones
           socket.emit('attackShip', {
             attackerShipId: selectedShipId,
             targetShipId: ship.id,
@@ -359,19 +367,38 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Otherwise, move selected ship to click location
+    // Move selected ship to click location
     if (selectedShipId) {
-      socket.emit('moveShip', { shipId: selectedShipId, x, y });
+      const ship = getShipData(selectedShipId);
+      if (ship && ship.systemId === currentSystemState.id && ship.state !== 'damaged') {
+        socket.emit('moveShip', { shipId: selectedShipId, x, y });
+      }
     }
   });
 
-  // Right-click for context actions
+  // RIGHT CLICK — context menu on ships
   systemCanvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    // Could add context menu here later
+    if (currentView !== 'system' || !currentSystemState) return;
+
+    const rect = systemCanvas.getBoundingClientRect();
+    const canvasX = (e.clientX - rect.left) * (systemCanvas.width / rect.width);
+    const canvasY = (e.clientY - rect.top) * (systemCanvas.height / rect.height);
+
+    // Find ship under cursor
+    for (const ship of currentSystemState.ships) {
+      const dx = canvasX - ship.x;
+      const dy = canvasY - ship.y;
+      if (Math.sqrt(dx * dx + dy * dy) < 20) {
+        showContextMenu(e.clientX, e.clientY, ship);
+        return;
+      }
+    }
+
+    closeContextMenu();
   });
 
-  // Galaxy canvas — single click: warp selected ship, or view system
+  // Galaxy canvas — single click: warp selected ship or view system
   const galaxyCanvas = document.getElementById('galaxy-canvas');
   galaxyCanvas.addEventListener('click', (e) => {
     if (currentView !== 'galaxy') return;
@@ -384,17 +411,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!sys) return;
 
     if (selectedShipId) {
-      // Ship is selected — warp it to the clicked system
       socket.emit('warpShipTo', { shipId: selectedShipId, targetSystemId: sys.id });
     } else {
-      // No ship selected — view the system
       socket.emit('viewSystem', sys.id);
       showSystemView();
       addLog(`Viewing ${sys.name} system. Select a ship first to warp.`, 'info');
     }
   });
 
-  // Double-click galaxy — always view system (even if ship selected)
+  // Double-click galaxy — always view system
   galaxyCanvas.addEventListener('dblclick', (e) => {
     if (currentView !== 'galaxy') return;
 
@@ -408,7 +433,89 @@ document.addEventListener('DOMContentLoaded', () => {
       showSystemView();
     }
   });
+
+  // Close context menu on click anywhere
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.context-menu')) {
+      closeContextMenu();
+    }
+  });
 });
+
+// --- Context Menu (STFC-style right-click on ships) ---
+
+function showContextMenu(screenX, screenY, ship) {
+  closeContextMenu();
+  const isOwn = ship.playerId === playerState.id;
+  const isNpc = ship.isNpc;
+
+  const menu = document.createElement('div');
+  menu.className = 'context-menu';
+  menu.style.left = screenX + 'px';
+  menu.style.top = screenY + 'px';
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'ctx-header';
+  header.style.color = ship.color;
+  header.textContent = `${ship.icon} ${ship.className}`;
+  if (isNpc) header.textContent += ' (Hostile)';
+  menu.appendChild(header);
+
+  if (isOwn) {
+    // Own ship actions
+    if (ship.state === 'damaged') {
+      addCtxOption(menu, 'Repair', () => repairShip(ship.id));
+    } else {
+      addCtxOption(menu, 'Select', () => selectShip(ship.id));
+      if (playerState && ship.systemId === playerState.homeSystemId) {
+        addCtxOption(menu, 'Dock at Starbase', () => dockShip(ship.id));
+      }
+      addCtxOption(menu, 'Warp...', () => { selectShip(ship.id); showGalaxyView(); addLog('Click a star to warp there.', 'info'); });
+      if (ship.miningRate > 0 && currentSystemState && currentSystemState.miningNodes.length > 0) {
+        addCtxOption(menu, 'Mine...', () => showMiningMenu(ship.id));
+      }
+      if (ship.state === 'mining' || ship.state === 'moving' || ship.state === 'combat') {
+        addCtxOption(menu, 'Stop', () => stopShip(ship.id));
+      }
+      addCtxOption(menu, 'Recall to Base', () => recallShip(ship.id));
+    }
+  } else {
+    // Enemy / NPC actions
+    if (selectedShipId) {
+      addCtxOption(menu, 'Attack', () => {
+        socket.emit('attackShip', { attackerShipId: selectedShipId, targetShipId: ship.id });
+      });
+    } else {
+      addCtxOption(menu, 'Select a ship first to attack', null, true);
+    }
+    // Show stats
+    addCtxOption(menu, `Hull: ${Math.floor(ship.hull)}/${ship.maxHull}`, null, true);
+    addCtxOption(menu, `Shields: ${Math.floor(ship.shields)}/${ship.maxShields}`, null, true);
+  }
+
+  document.body.appendChild(menu);
+
+  // Keep menu on screen
+  const menuRect = menu.getBoundingClientRect();
+  if (menuRect.right > window.innerWidth) menu.style.left = (screenX - menuRect.width) + 'px';
+  if (menuRect.bottom > window.innerHeight) menu.style.top = (screenY - menuRect.height) + 'px';
+}
+
+function addCtxOption(menu, label, onclick, disabled) {
+  const opt = document.createElement('div');
+  opt.className = 'ctx-option' + (disabled ? ' disabled' : '');
+  opt.textContent = label;
+  if (onclick && !disabled) {
+    opt.onclick = () => { onclick(); closeContextMenu(); };
+  }
+  menu.appendChild(opt);
+}
+
+function closeContextMenu() {
+  const existing = document.querySelector('.context-menu');
+  if (existing) existing.remove();
+}
 
 // --- Ship Actions ---
 
@@ -417,8 +524,7 @@ function dockShip(shipId) {
 }
 
 function stopShip(shipId) {
-  // Move to current position to stop
-  const ship = currentSystemState?.ships.find(s => s.id === shipId);
+  const ship = getShipData(shipId);
   if (ship) {
     socket.emit('moveShip', { shipId, x: ship.x, y: ship.y });
   }
@@ -428,57 +534,15 @@ function repairShip(shipId) {
   socket.emit('repairShip', { shipId });
 }
 
-function showWarpMenu(shipId) {
-  if (!currentSystemState) return;
-
-  // Remove existing warp menu
-  const existing = document.querySelector('.warp-menu');
-  if (existing) existing.remove();
-
-  const ship = currentSystemState.ships.find(s => s.id === shipId);
+function recallShip(shipId) {
+  if (!playerState) return;
+  const ship = getShipData(shipId);
   if (!ship) return;
-
-  const menu = document.createElement('div');
-  menu.className = 'warp-menu';
-  menu.style.left = '50%';
-  menu.style.top = '50%';
-  menu.style.transform = 'translate(-50%, -50%)';
-
-  const title = document.createElement('div');
-  title.style.cssText = 'font-size:13px;color:#5dade2;margin-bottom:8px;text-align:center;letter-spacing:1px;';
-  title.textContent = 'WARP TO';
-  menu.appendChild(title);
-
-  for (const connId of currentSystemState.connections) {
-    const sys = galaxyData.find(s => s.id === connId);
-    if (!sys) continue;
-
-    const opt = document.createElement('div');
-    opt.className = 'warp-option';
-
-    const typeSpan = document.createElement('span');
-    typeSpan.className = sys.type === 'safe' ? 'warp-type-safe' : 'warp-type-dangerous';
-    typeSpan.textContent = sys.type === 'safe' ? ' [SAFE]' : ' [PVP]';
-
-    opt.textContent = sys.name;
-    opt.appendChild(typeSpan);
-    opt.onclick = () => {
-      socket.emit('warpShip', { shipId, targetSystemId: connId });
-      menu.remove();
-    };
-    menu.appendChild(opt);
+  if (ship.systemId === playerState.homeSystemId) {
+    dockShip(shipId);
+  } else {
+    socket.emit('warpShipTo', { shipId, targetSystemId: playerState.homeSystemId });
   }
-
-  // Close button
-  const closeBtn = document.createElement('div');
-  closeBtn.className = 'warp-option';
-  closeBtn.style.color = '#e74c3c';
-  closeBtn.style.textAlign = 'center';
-  closeBtn.textContent = 'Cancel';
-  closeBtn.onclick = () => menu.remove();
-  menu.appendChild(closeBtn);
-
-  document.getElementById('game-area').appendChild(menu);
 }
 
 function showMiningMenu(shipId) {
@@ -542,24 +606,34 @@ function openStarbase() {
   }
   html += '</div></div>';
 
-  // Docked ships
-  html += '<div class="docked-ships"><h4>Ships</h4>';
-  let shipCount = 0;
-  if (currentSystemState) {
-    for (const ship of currentSystemState.ships) {
-      if (ship.playerId === playerState.id) {
-        shipCount++;
-        html += `<div class="docked-ship-item">
-          <span style="color:${ship.color}">${ship.icon} ${ship.className}</span>
-          <span style="color:#7f8c8d">${ship.state}</span>
-        </div>`;
+  // All player ships (from playerState, not just current system)
+  html += '<div class="docked-ships"><h4>Fleet</h4>';
+  if (playerState && playerState.ships) {
+    for (const [shipId, ship] of Object.entries(playerState.ships)) {
+      const inHomeSystem = ship.systemId === playerState.homeSystemId;
+      const locationLabel = inHomeSystem ? 'Home' : ship.systemId.replace(/_/g, ' ');
+      let actionBtn = '';
+
+      if (ship.state === 'damaged') {
+        actionBtn = `<button class="action-btn danger" style="padding:2px 8px;font-size:10px;" onclick="repairShip('${shipId}')">REPAIR</button>`;
+      } else if (!inHomeSystem) {
+        actionBtn = `<button class="action-btn" style="padding:2px 8px;font-size:10px;" onclick="recallShip('${shipId}')">RECALL</button>`;
       }
+
+      html += `<div class="docked-ship-item">
+        <span style="color:${ship.color}">${ship.icon} ${ship.className}</span>
+        <span style="color:#7f8c8d;font-size:10px;">${ship.state} · ${locationLabel}</span>
+        ${actionBtn}
+      </div>`;
     }
   }
-  if (shipCount === 0) {
-    html += '<div style="color:#555;font-size:12px;">No ships in this system</div>';
-  }
   html += '</div>';
+
+  // Build and Upgrade buttons
+  html += `<div style="margin-top:12px;display:flex;gap:8px;">
+    <button class="build-btn" onclick="openBuildMenu()">BUILD SHIP</button>
+    <button class="build-btn" onclick="openUpgradeMenu()">UPGRADE</button>
+  </div>`;
 
   content.innerHTML = html;
 }
@@ -611,7 +685,7 @@ function openUpgradeMenu() {
     return;
   }
 
-  const ship = currentSystemState?.ships.find(s => s.id === selectedShipId);
+  const ship = getShipData(selectedShipId);
   if (!ship || ship.playerId !== playerState.id) {
     addLog('Select one of your ships to upgrade.', 'warning');
     return;
@@ -645,7 +719,7 @@ function openUpgradeMenu() {
     html += '</div>';
 
     if (!isMaxed) {
-      const nextTier = tiers[currentTier]; // 0-based: tiers[currentTier] = next tier data
+      const nextTier = tiers[currentTier];
       html += '<div class="build-item-cost">';
       let canAfford = true;
       for (const [res, amount] of Object.entries(nextTier.cost)) {
@@ -686,7 +760,6 @@ function addLog(message, type = 'info') {
   msg.textContent = `[${time}] ${message}`;
   container.insertBefore(msg, container.firstChild);
 
-  // Keep max 50 messages
   while (container.children.length > 50) {
     container.removeChild(container.lastChild);
   }

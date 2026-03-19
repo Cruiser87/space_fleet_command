@@ -309,8 +309,8 @@ class GameEngine {
     if (!ship || ship.playerId !== playerId) return false;
     if (ship.state === 'warping' || ship.isDestroyed) return false;
 
-    ship.targetX = Math.max(20, Math.min(780, targetX));
-    ship.targetY = Math.max(20, Math.min(580, targetY));
+    ship.targetX = Math.max(10, Math.min(790, targetX));
+    ship.targetY = Math.max(10, Math.min(590, targetY));
     ship.state = 'moving';
     ship.miningTarget = null;
     ship.combatTarget = null;
@@ -529,7 +529,7 @@ class GameEngine {
     if (ship.systemId !== player.homeSystemId) {
       return { success: false, error: 'Ship must be at your starbase' };
     }
-    if (ship.state !== 'damaged' && ship.hull >= ship.maxHull) {
+    if (ship.state !== 'damaged' || ship.hull >= ship.maxHull) {
       return { success: false, error: 'Ship does not need repair' };
     }
 

@@ -656,6 +656,58 @@ canvas {
   max-width: 200px;
 }
 
+/* --- CONTEXT MENU --- */
+
+.context-menu {
+  position: fixed;
+  background: rgba(10, 18, 32, 0.96);
+  border: 1px solid rgba(52, 152, 219, 0.4);
+  border-radius: 6px;
+  min-width: 180px;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 15px rgba(52, 152, 219, 0.1);
+  overflow: hidden;
+}
+
+.ctx-header {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5dade2;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(52, 152, 219, 0.15);
+  background: rgba(52, 152, 219, 0.05);
+}
+
+.ctx-option {
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #bdc3c7;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ctx-option:hover {
+  background: rgba(52, 152, 219, 0.15);
+  color: #5dade2;
+}
+
+.ctx-option.disabled {
+  color: #555;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.ctx-option.danger {
+  color: #e74c3c;
+}
+
+.ctx-option.danger:hover {
+  background: rgba(231, 76, 60, 0.15);
+  color: #ff6b6b;
+}
+
 /* --- WARP MENU --- */
 
 .warp-menu {
