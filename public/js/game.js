@@ -137,7 +137,7 @@ function joinGame() {
 // --- Game Loop ---
 function gameLoop() {
   if (currentView === 'galaxy') {
-    renderer.drawGalaxyMap(galaxyData, playerState?.homeSystemId);
+    renderer.drawGalaxyMap(galaxyData, playerState?.homeSystemId, playerState?.id);
   } else {
     renderer.drawSystemView(currentSystemState, playerState?.id, selectedShipId);
   }

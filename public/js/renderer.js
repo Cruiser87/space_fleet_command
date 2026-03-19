@@ -46,7 +46,7 @@ class Renderer {
   // GALAXY MAP
   // ----------------------------------------------------------
 
-  drawGalaxyMap(galaxyData, playerHomeSystem) {
+  drawGalaxyMap(galaxyData, playerHomeSystem, playerId) {
     const ctx = this.galaxyCtx;
     const w = this.galaxyCanvas.width;
     const h = this.galaxyCanvas.height;
@@ -122,11 +122,38 @@ class Renderer {
         ctx.fillText('HOME', sys.x, sys.y - radius - 8);
       }
 
-      // Ship count
+      // Ship count (total)
       if (sys.shipCount > 0) {
         ctx.fillStyle = '#5dade2';
         ctx.font = 'bold 10px "Segoe UI", sans-serif';
         ctx.fillText(`${sys.shipCount}`, sys.x, sys.y + 4);
+      }
+
+      // Player's own ships indicator
+      const myShipCount = playerId && sys.playerShips ? (sys.playerShips[playerId] || 0) : 0;
+      if (myShipCount > 0) {
+        const iconX = sys.x + radius + 8;
+        const iconY = sys.y - 4;
+
+        // Ship icon (small triangle)
+        ctx.save();
+        ctx.translate(iconX, iconY);
+        ctx.fillStyle = '#5dade2';
+        ctx.beginPath();
+        ctx.moveTo(7, 0);
+        ctx.lineTo(-5, -5);
+        ctx.lineTo(-3, 0);
+        ctx.lineTo(-5, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        // Ship count badge
+        ctx.fillStyle = '#f1c40f';
+        ctx.font = 'bold 10px "Segoe UI", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`x${myShipCount}`, iconX + 10, iconY + 4);
+        ctx.textAlign = 'center'; // reset
       }
     }
   }

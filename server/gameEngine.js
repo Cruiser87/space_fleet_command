@@ -641,17 +641,29 @@ class GameEngine {
   }
 
   getGalaxyMap() {
-    return STAR_SYSTEMS.map(sys => ({
-      id: sys.id,
-      name: sys.name,
-      x: sys.x,
-      y: sys.y,
-      type: sys.type,
-      level: sys.level,
-      color: sys.color,
-      connections: sys.connections,
-      shipCount: this.systems.get(sys.id).ships.size,
-    }));
+    return STAR_SYSTEMS.map(sys => {
+      const systemState = this.systems.get(sys.id);
+      // Count ships per player in this system
+      const playerShips = {};
+      for (const shipId of systemState.ships) {
+        const ship = this.ships.get(shipId);
+        if (ship && !ship.isDestroyed) {
+          playerShips[ship.playerId] = (playerShips[ship.playerId] || 0) + 1;
+        }
+      }
+      return {
+        id: sys.id,
+        name: sys.name,
+        x: sys.x,
+        y: sys.y,
+        type: sys.type,
+        level: sys.level,
+        color: sys.color,
+        connections: sys.connections,
+        shipCount: systemState.ships.size,
+        playerShips,
+      };
+    });
   }
 }
 
