@@ -243,6 +243,7 @@ class Renderer {
   drawShip(ctx, ship, isOwn, isSelected) {
     const x = ship.x;
     const y = ship.y;
+    const isNpc = ship.isNpc;
 
     // Selection ring
     if (isSelected) {
@@ -255,13 +256,37 @@ class Renderer {
       ctx.setLineDash([]);
     }
 
+    // NPC threat glow
+    if (isNpc) {
+      const glowRadius = 20;
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
+      gradient.addColorStop(0, ship.color + '40');
+      gradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     // Ship body
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(ship.angle || 0);
 
-    // Draw ship shape based on class
-    if (ship.classType === 'mining') {
+    if (isNpc) {
+      // NPC ships — inverted triangle / diamond shapes
+      ctx.fillStyle = ship.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -12);
+      ctx.lineTo(10, 4);
+      ctx.lineTo(0, 10);
+      ctx.lineTo(-10, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#ff6b6b';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    } else if (ship.classType === 'mining') {
       // Mining ship — square-ish
       ctx.fillStyle = isOwn ? ship.color : '#95a5a6';
       ctx.fillRect(-8, -8, 16, 16);
@@ -269,7 +294,7 @@ class Renderer {
       ctx.lineWidth = 1;
       ctx.strokeRect(-8, -8, 16, 16);
     } else {
-      // Combat / exploration — triangle
+      // Player combat / exploration — triangle
       ctx.fillStyle = isOwn ? ship.color : '#c0392b';
       ctx.beginPath();
       ctx.moveTo(14, 0);
@@ -285,11 +310,25 @@ class Renderer {
 
     ctx.restore();
 
-    // Ship name / owner
-    ctx.fillStyle = isOwn ? '#5dade2' : '#e74c3c';
-    ctx.font = '9px "Segoe UI", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(ship.className, x, y - 18);
+    // Ship name / owner label
+    if (isNpc) {
+      ctx.fillStyle = ship.color;
+      ctx.font = 'bold 9px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(ship.className, x, y - 18);
+    } else {
+      ctx.fillStyle = isOwn ? '#5dade2' : '#e74c3c';
+      ctx.font = '9px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(ship.className, x, y - 18);
+    }
+
+    // Kill count badge for player ships
+    if (isOwn && ship.kills > 0) {
+      ctx.fillStyle = '#f39c12';
+      ctx.font = 'bold 8px "Segoe UI", sans-serif';
+      ctx.fillText(`${ship.kills} kills`, x, y - 28);
+    }
 
     // Health bars
     this.drawHealthBars(ctx, x, y + 14, ship);

@@ -275,6 +275,8 @@ function updateShipInfoPanel() {
     <div class="stat-row"><span>Warp</span><span class="stat-val">${ship.warpRange}</span></div>
     <div class="stat-row"><span>Cargo</span><span class="stat-val">${totalCargo}/${ship.maxCargo}</span></div>
     <div class="stat-row"><span>State</span><span class="stat-val">${ship.state}</span></div>
+    <div class="stat-row"><span>Kills</span><span class="stat-val">${ship.kills || 0}</span></div>
+    <div class="stat-row"><span>Power</span><span class="stat-val ${ship.powerBonus > 0 ? 'high' : ''}">${ship.powerBonus ? '+' + Math.round(ship.powerBonus * 100) + '%' : '--'}</span></div>
   `;
 
   // Actions
@@ -321,14 +323,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (Math.sqrt(dx * dx + dy * dy) < 20) {
         if (ship.playerId === playerState.id) {
           selectShip(ship.id);
-        } else {
-          // Clicked enemy ship — attack with selected ship
-          if (selectedShipId && currentSystemState.type === 'dangerous') {
-            socket.emit('attackShip', {
-              attackerShipId: selectedShipId,
-              targetShipId: ship.id,
-            });
-          }
+        } else if (selectedShipId) {
+          // Clicked NPC or enemy ship — attack with selected ship
+          // NPCs can be attacked anywhere; players only in PVP zones
+          socket.emit('attackShip', {
+            attackerShipId: selectedShipId,
+            targetShipId: ship.id,
+          });
         }
         return;
       }

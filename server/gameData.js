@@ -527,6 +527,115 @@ const STARTER_RESOURCES = {
 // Starter ships
 const STARTER_SHIPS = ['interceptor', 'mining_shuttle'];
 
+// --- NPC SHIP DEFINITIONS ---
+// Stats scale with system level via multipliers
+const NPC_SHIPS = {
+  raider: {
+    id: 'raider',
+    name: 'Raider',
+    icon: '▽',
+    color: '#e74c3c',
+    baseStats: {
+      hull: 60,
+      armor: 15,
+      shields: 25,
+      laserDamage: 8,
+      torpedoDamage: 0,
+      fireRate: 1.2,
+      speed: 90,
+    },
+    drops: { stellite: 30, ferronite: 20 },
+    xpReward: 5,
+  },
+  marauder: {
+    id: 'marauder',
+    name: 'Marauder',
+    icon: '◇',
+    color: '#c0392b',
+    baseStats: {
+      hull: 120,
+      armor: 40,
+      shields: 50,
+      laserDamage: 15,
+      torpedoDamage: 10,
+      fireRate: 1.0,
+      speed: 70,
+    },
+    drops: { stellite: 60, ferronite: 40, nexium: 15 },
+    xpReward: 12,
+  },
+  destroyer: {
+    id: 'destroyer',
+    name: 'Destroyer',
+    icon: '⬦',
+    color: '#922b21',
+    baseStats: {
+      hull: 250,
+      armor: 80,
+      shields: 100,
+      laserDamage: 25,
+      torpedoDamage: 30,
+      fireRate: 0.8,
+      speed: 55,
+    },
+    drops: { stellite: 120, ferronite: 80, nexium: 40, pyrathium: 20 },
+    xpReward: 25,
+  },
+  dreadnought: {
+    id: 'dreadnought',
+    name: 'Dreadnought',
+    icon: '⬡',
+    color: '#7b241c',
+    baseStats: {
+      hull: 500,
+      armor: 180,
+      shields: 220,
+      laserDamage: 45,
+      torpedoDamage: 60,
+      fireRate: 0.6,
+      speed: 40,
+    },
+    drops: { stellite: 250, ferronite: 150, nexium: 80, pyrathium: 50, aurelium: 10 },
+    xpReward: 50,
+  },
+  warlord: {
+    id: 'warlord',
+    name: 'Warlord',
+    icon: '⬠',
+    color: '#641e16',
+    baseStats: {
+      hull: 900,
+      armor: 350,
+      shields: 450,
+      laserDamage: 80,
+      torpedoDamage: 120,
+      fireRate: 0.5,
+      speed: 30,
+    },
+    drops: { stellite: 500, ferronite: 350, nexium: 200, pyrathium: 120, aurelium: 40 },
+    xpReward: 100,
+  },
+};
+
+// Which NPC types spawn at each system level, and how many
+const NPC_SPAWN_TABLE = {
+  1:  { types: ['raider'], count: 3 },
+  2:  { types: ['raider', 'marauder'], count: 4 },
+  3:  { types: ['raider', 'marauder'], count: 5 },
+  4:  { types: ['marauder', 'destroyer'], count: 4 },
+  5:  { types: ['marauder', 'destroyer'], count: 5 },
+  6:  { types: ['destroyer', 'dreadnought'], count: 5 },
+  7:  { types: ['destroyer', 'dreadnought', 'warlord'], count: 5 },
+  8:  { types: ['dreadnought', 'warlord'], count: 5 },
+  9:  { types: ['dreadnought', 'warlord'], count: 6 },
+  10: { types: ['warlord'], count: 6 },
+};
+
+// NPC stat multiplier per system level (level 1 = 1.0x, level 10 = 5.0x)
+function getNpcLevelMultiplier(systemLevel) {
+  return 1.0 + (systemLevel - 1) * 0.45;
+}
+
 module.exports = {
   RESOURCES,
   SHIP_CLASSES,
@@ -534,6 +643,9 @@ module.exports = {
   STAR_SYSTEMS,
   STARTER_RESOURCES,
   STARTER_SHIPS,
+  NPC_SHIPS,
+  NPC_SPAWN_TABLE,
+  getNpcLevelMultiplier,
   getWarpDistance,
   getWarpPath,
 };

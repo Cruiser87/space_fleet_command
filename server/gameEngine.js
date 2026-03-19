@@ -13,6 +13,7 @@ const { v4: uuidv4 } = require('uuid');
 const {
   SHIP_CLASSES, UPGRADE_TIERS, STAR_SYSTEMS,
   STARTER_RESOURCES, STARTER_SHIPS, RESOURCES, getWarpDistance, getWarpPath,
+  NPC_SHIPS, NPC_SPAWN_TABLE, getNpcLevelMultiplier,
 } = require('./gameData');
 
 const TICK_RATE = 20;               // server ticks per second
@@ -20,14 +21,18 @@ const TICK_MS = 1000 / TICK_RATE;
 const COMBAT_RANGE = 60;            // pixels — ships within this range fight
 const MINING_RANGE = 80;            // pixels — ships within this range of a planet can mine
 const SHIP_COLLISION_RADIUS = 20;
+const NPC_RESPAWN_DELAY = 30000;    // 30 seconds before NPCs respawn
+const NPC_WANDER_INTERVAL = 3000;   // NPCs pick a new destination every 3s
 
 class GameEngine {
   constructor() {
-    this.players = new Map();       // odplayerId -> Player
+    this.players = new Map();       // playerId -> Player
     this.ships = new Map();         // shipId -> Ship
     this.systems = new Map();       // systemId -> SystemState
     this.combats = new Map();       // combatId -> Combat
+    this.npcShips = new Map();      // shipId -> NPC ship data
     this.tickInterval = null;
+    this.npcTickCounter = 0;
 
     // Initialize system states
     for (const sys of STAR_SYSTEMS) {
@@ -48,6 +53,10 @@ class GameEngine {
   }
 
   start() {
+    // Spawn initial NPCs in all systems
+    for (const sys of STAR_SYSTEMS) {
+      this.spawnNpcsInSystem(sys.id);
+    }
     this.tickInterval = setInterval(() => this.tick(), TICK_MS);
   }
 
@@ -170,6 +179,12 @@ class GameEngine {
       combatTarget: null,
       lastFireTime: 0,
       isDestroyed: false,
+      isNpc: false,
+
+      // Progression
+      xp: 0,
+      kills: 0,
+      powerBonus: 0,   // percentage bonus from kills (e.g., 0.1 = 10%)
     };
 
     this.ships.set(shipId, ship);
@@ -483,9 +498,9 @@ class GameEngine {
     if (attacker.systemId !== target.systemId) return { success: false, error: 'Not in same system' };
     if (attacker.isDestroyed || target.isDestroyed) return { success: false, error: 'Ship destroyed' };
 
-    // Check PVP rules
+    // Check PVP rules — NPCs can always be attacked, players only in dangerous zones
     const system = this.systems.get(attacker.systemId);
-    if (system.type === 'safe' && target.playerId !== 'npc') {
+    if (system.type === 'safe' && !target.isNpc) {
       return { success: false, error: 'Cannot attack players in safe zones' };
     }
 
@@ -562,6 +577,11 @@ class GameEngine {
       }
       target.cargo = {};
 
+      // If target was NPC, award resources and XP to killer
+      if (target.isNpc && !ship.isNpc) {
+        this.onNpcKilled(ship, target);
+      }
+
       // Remove destroyed ship after a delay
       setTimeout(() => this.removeShip(target.id), 5000);
 
@@ -571,11 +591,226 @@ class GameEngine {
   }
 
   // ----------------------------------------------------------
+  // NPC SYSTEM
+  // ----------------------------------------------------------
+
+  spawnNpcsInSystem(systemId) {
+    const system = this.systems.get(systemId);
+    if (!system) return;
+
+    const spawnInfo = NPC_SPAWN_TABLE[system.level] || NPC_SPAWN_TABLE[1];
+    const levelMult = getNpcLevelMultiplier(system.level);
+
+    for (let i = 0; i < spawnInfo.count; i++) {
+      const npcType = spawnInfo.types[Math.floor(Math.random() * spawnInfo.types.length)];
+      this.createNpcShip(npcType, systemId, levelMult);
+    }
+  }
+
+  createNpcShip(npcTypeId, systemId, levelMult) {
+    const npcDef = NPC_SHIPS[npcTypeId];
+    if (!npcDef) return null;
+
+    const system = this.systems.get(systemId);
+    if (!system) return null;
+
+    const shipId = uuidv4();
+    const base = npcDef.baseStats;
+
+    const ship = {
+      id: shipId,
+      playerId: 'npc',
+      classId: npcTypeId,
+      className: npcDef.name,
+      classType: 'npc',
+      icon: npcDef.icon,
+      color: npcDef.color,
+      systemId,
+
+      x: 50 + Math.random() * 700,
+      y: 50 + Math.random() * 500,
+      targetX: null,
+      targetY: null,
+      angle: Math.random() * Math.PI * 2,
+
+      upgrades: { armor: 1, shields: 1, lasers: 1, torpedoes: 1, cargo: 1, warp: 1 },
+
+      maxHull: Math.floor(base.hull * levelMult),
+      hull: Math.floor(base.hull * levelMult),
+      maxArmor: Math.floor(base.armor * levelMult),
+      armor: Math.floor(base.armor * levelMult),
+      maxShields: Math.floor(base.shields * levelMult),
+      shields: Math.floor(base.shields * levelMult),
+      laserDamage: Math.floor(base.laserDamage * levelMult),
+      torpedoDamage: Math.floor(base.torpedoDamage * levelMult),
+      fireRate: base.fireRate,
+      speed: base.speed,
+      warpRange: 0,
+      maxCargo: 0,
+      cargo: {},
+      miningRate: 0,
+
+      state: 'idle',
+      miningTarget: null,
+      combatTarget: null,
+      lastFireTime: 0,
+      isDestroyed: false,
+      isNpc: true,
+      npcType: npcTypeId,
+
+      // NPC AI state
+      npcWanderTimer: Date.now() + Math.random() * NPC_WANDER_INTERVAL,
+      npcAggroRange: 150,  // pixels — NPCs will engage player ships within this range
+
+      xp: 0,
+      kills: 0,
+      powerBonus: 0,
+    };
+
+    this.ships.set(shipId, ship);
+    this.npcShips.set(shipId, ship);
+    system.ships.add(shipId);
+
+    return ship;
+  }
+
+  // Count living NPCs in a system
+  getNpcCountInSystem(systemId) {
+    let count = 0;
+    for (const ship of this.npcShips.values()) {
+      if (ship.systemId === systemId && !ship.isDestroyed) count++;
+    }
+    return count;
+  }
+
+  // NPC AI tick — called less frequently than main tick
+  tickNpcAI(now) {
+    for (const ship of this.npcShips.values()) {
+      if (ship.isDestroyed) continue;
+
+      // --- Aggro: find nearby player ships and attack ---
+      if (ship.state !== 'combat') {
+        const system = this.systems.get(ship.systemId);
+        if (system) {
+          let closestDist = ship.npcAggroRange;
+          let closestTarget = null;
+
+          for (const otherShipId of system.ships) {
+            const otherShip = this.ships.get(otherShipId);
+            if (!otherShip || otherShip.isNpc || otherShip.isDestroyed) continue;
+            if (otherShip.state === 'warping' || otherShip.state === 'docked') continue;
+
+            const dx = ship.x - otherShip.x;
+            const dy = ship.y - otherShip.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < closestDist) {
+              closestDist = dist;
+              closestTarget = otherShip;
+            }
+          }
+
+          if (closestTarget) {
+            ship.combatTarget = closestTarget.id;
+            ship.state = 'combat';
+            // Target fights back
+            if (closestTarget.state !== 'combat') {
+              closestTarget.combatTarget = ship.id;
+              closestTarget.state = 'combat';
+            }
+            continue;
+          }
+        }
+      }
+
+      // --- Wander: pick random destinations ---
+      if (ship.state === 'idle' && now > ship.npcWanderTimer) {
+        ship.targetX = 50 + Math.random() * 700;
+        ship.targetY = 50 + Math.random() * 500;
+        ship.state = 'moving';
+        ship.npcWanderTimer = now + NPC_WANDER_INTERVAL + Math.random() * 2000;
+      }
+    }
+
+    // --- Respawn check: if all NPCs cleared in a system, schedule respawn ---
+    for (const sys of STAR_SYSTEMS) {
+      const system = this.systems.get(sys.id);
+      if (!system._npcRespawnTimer && this.getNpcCountInSystem(sys.id) === 0) {
+        system._npcRespawnTimer = setTimeout(() => {
+          this.spawnNpcsInSystem(sys.id);
+          system._npcRespawnTimer = null;
+        }, NPC_RESPAWN_DELAY);
+      }
+    }
+  }
+
+  // Called when a player ship destroys an NPC
+  onNpcKilled(killerShip, npcShip) {
+    const player = this.players.get(killerShip.playerId);
+    if (!player) return;
+
+    const npcDef = NPC_SHIPS[npcShip.npcType];
+    if (!npcDef) return;
+
+    // Award resources (scaled by system level)
+    const system = this.systems.get(npcShip.systemId);
+    const levelMult = system ? getNpcLevelMultiplier(system.level) : 1;
+    for (const [res, amount] of Object.entries(npcDef.drops)) {
+      const scaledAmount = Math.floor(amount * levelMult);
+      player.resources[res] = (player.resources[res] || 0) + scaledAmount;
+    }
+
+    // Award XP and power bonus to the killer ship
+    const xpGain = Math.floor(npcDef.xpReward * levelMult);
+    killerShip.xp = (killerShip.xp || 0) + xpGain;
+    killerShip.kills = (killerShip.kills || 0) + 1;
+
+    // Power bonus: each kill gives a small permanent stat boost
+    // Diminishing returns: first kills give more, caps at 100% bonus
+    const newBonus = Math.min(1.0, (killerShip.kills * 0.02));
+    killerShip.powerBonus = newBonus;
+
+    // Apply power bonus to ship stats
+    this.applyPowerBonus(killerShip);
+
+    // Clean up NPC tracking
+    this.npcShips.delete(npcShip.id);
+  }
+
+  applyPowerBonus(ship) {
+    const base = SHIP_CLASSES[ship.classId];
+    if (!base) return; // NPC ships don't use this
+
+    const u = ship.upgrades;
+    const bonus = 1 + (ship.powerBonus || 0);
+
+    const armorMult = UPGRADE_TIERS.armor[u.armor - 1].multiplier;
+    const shieldMult = UPGRADE_TIERS.shields[u.shields - 1].multiplier;
+    const laserMult = UPGRADE_TIERS.lasers[u.lasers - 1].multiplier;
+    const torpMult = UPGRADE_TIERS.torpedoes[u.torpedoes - 1].multiplier;
+    const cargoMult = UPGRADE_TIERS.cargo[u.cargo - 1].multiplier;
+    const warpMult = UPGRADE_TIERS.warp[u.warp - 1].multiplier;
+
+    ship.maxArmor = Math.floor(base.baseStats.armor * armorMult * bonus);
+    ship.maxShields = Math.floor(base.baseStats.shields * shieldMult * bonus);
+    ship.laserDamage = Math.floor(base.baseStats.laserDamage * laserMult * bonus);
+    ship.torpedoDamage = Math.floor(base.baseStats.torpedoDamage * torpMult * bonus);
+    ship.maxCargo = Math.floor(base.baseStats.cargo * cargoMult);
+    ship.warpRange = Math.floor(base.baseStats.warpRange * warpMult);
+    ship.maxHull = Math.floor(base.baseStats.hull * bonus);
+  }
+
+  // ----------------------------------------------------------
   // GAME TICK
   // ----------------------------------------------------------
 
   tick() {
     const now = Date.now();
+
+    // NPC AI runs every 5 ticks (4 times per second) to save CPU
+    this.npcTickCounter++;
+    if (this.npcTickCounter % 5 === 0) {
+      this.tickNpcAI(now);
+    }
 
     for (const ship of this.ships.values()) {
       if (ship.isDestroyed || ship.state === 'warping' || ship.state === 'docked') continue;
@@ -689,6 +924,11 @@ class GameEngine {
       upgrades: { ...ship.upgrades },
       miningTarget: ship.miningTarget,
       combatTarget: ship.combatTarget,
+      isNpc: ship.isNpc || false,
+      npcType: ship.npcType || null,
+      xp: ship.xp || 0,
+      kills: ship.kills || 0,
+      powerBonus: ship.powerBonus || 0,
     };
   }
 
