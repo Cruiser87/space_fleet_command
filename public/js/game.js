@@ -16,6 +16,7 @@ let factionData = {};
 let buildingTypes = {};
 let officerData = {};
 let officerRarities = {};
+let previousShipStates = {}; // Track ship states for damage detection
 
 // --- Helper: get ship data from any source ---
 function getShipData(shipId) {
@@ -88,6 +89,28 @@ function joinGame() {
   });
 
   socket.on('playerUpdate', (state) => {
+    // Detect ships that just became damaged (returned to starbase)
+    if (state.ships && playerState && playerState.ships) {
+      for (const [shipId, ship] of Object.entries(state.ships)) {
+        const prevState = previousShipStates[shipId];
+        if (ship.state === 'damaged' && prevState && prevState !== 'damaged') {
+          addLog(`${ship.className} was destroyed and returned to starbase! Repair needed.`, 'combat');
+          showEventBanner(`${ship.className} DESTROYED - Returned to Starbase`);
+          // Auto-switch to home system view so they can see it
+          if (currentSystemState && currentSystemState.id !== state.homeSystemId) {
+            socket.emit('viewSystem', state.homeSystemId);
+          }
+        }
+      }
+    }
+    // Update previous states for next comparison
+    if (state.ships) {
+      previousShipStates = {};
+      for (const [shipId, ship] of Object.entries(state.ships)) {
+        previousShipStates[shipId] = ship.state;
+      }
+    }
+
     playerState = state;
     updateResourceDisplay();
     updateShipList();
@@ -428,6 +451,17 @@ function updateShipList() {
     div.appendChild(icon);
     div.appendChild(name);
     div.appendChild(state);
+
+    // Add quick repair button for damaged ships
+    if (shipData && shipData.state === 'damaged') {
+      div.classList.add('ship-damaged');
+      const repairBtn = document.createElement('button');
+      repairBtn.className = 'ship-repair-btn';
+      repairBtn.textContent = 'REPAIR';
+      repairBtn.onclick = (e) => { e.stopPropagation(); repairShip(shipId); };
+      div.appendChild(repairBtn);
+    }
+
     container.appendChild(div);
   }
 }
