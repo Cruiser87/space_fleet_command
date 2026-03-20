@@ -1984,3 +1984,133 @@ canvas {
   padding: 8px 32px;
   font-weight: 600;
 }
+
+/* --- Fleet Dock (in starbase overview) --- */
+
+.sb-fleet-dock {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  padding: 10px 0 0 0;
+  margin-top: 10px;
+  max-height: 160px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sb-fleet-dock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.sb-fleet-dock-header h4 {
+  font-size: 12px;
+  font-weight: 700;
+  color: #c0ccd8;
+  letter-spacing: 0.5px;
+}
+
+.sb-fleet-dock-count {
+  font-size: 11px;
+  color: #5a6a7a;
+}
+
+.sb-fleet-dock-list {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.sb-fleet-ship {
+  flex-shrink: 0;
+  width: 120px;
+  padding: 8px 10px;
+  background: rgba(16, 24, 40, 0.9);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sb-fleet-ship:hover {
+  border-color: rgba(52, 152, 219, 0.3);
+  background: rgba(20, 30, 50, 0.9);
+}
+
+.sb-fleet-ship.damaged {
+  border-color: rgba(231, 76, 60, 0.5);
+  background: rgba(231, 76, 60, 0.08);
+  animation: damagedPulse 1.5s ease-in-out infinite;
+}
+
+.sb-fleet-ship-icon {
+  font-size: 20px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.sb-fleet-ship-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: #dce4ec;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sb-fleet-ship-state {
+  font-size: 9px;
+  color: #5a6a7a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+.sb-fleet-ship-state.damaged { color: #e74c3c; font-weight: 700; }
+.sb-fleet-ship-state.mining { color: #2ecc71; }
+.sb-fleet-ship-state.combat { color: #e74c3c; }
+.sb-fleet-ship-state.warping { color: #9b59b6; }
+
+.sb-fleet-ship-location {
+  font-size: 8px;
+  color: #3a4a5a;
+  margin-top: 1px;
+}
+
+.sb-fleet-ship-hp {
+  height: 3px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.sb-fleet-ship-hp-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+.sb-fleet-repair-btn {
+  margin-top: 4px;
+  padding: 2px 8px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  background: rgba(231, 76, 60, 0.2);
+  border: 1px solid rgba(231, 76, 60, 0.5);
+  border-radius: 3px;
+  color: #e74c3c;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.sb-fleet-repair-btn:hover {
+  background: rgba(231, 76, 60, 0.35);
+  color: #ff8a80;
+}

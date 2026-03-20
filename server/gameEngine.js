@@ -621,6 +621,8 @@ class GameEngine {
     if (attacker.playerId !== playerId) return { success: false, error: 'Not your ship' };
     if (attacker.systemId !== target.systemId) return { success: false, error: 'Not in same system' };
     if (attacker.isDestroyed || target.isDestroyed) return { success: false, error: 'Ship destroyed' };
+    if (attacker.state === 'damaged') return { success: false, error: 'Ship is damaged, repair first' };
+    if (target.state === 'damaged') return { success: false, error: 'Target is damaged' };
 
     const system = this.systems.get(attacker.systemId);
     if (system.type === 'safe' && !target.isNpc) {
@@ -649,8 +651,13 @@ class GameEngine {
     if (ship.state !== 'combat' || !ship.combatTarget) return;
 
     const target = this.ships.get(ship.combatTarget);
-    if (!target || target.isDestroyed) {
+    if (!target || target.isDestroyed || target.state === 'damaged') {
       ship.state = 'idle';
+      ship.combatTarget = null;
+      return;
+    }
+    // Stop fighting if this ship is damaged
+    if (ship.isDestroyed || ship.state === 'damaged') {
       ship.combatTarget = null;
       return;
     }
@@ -818,7 +825,7 @@ class GameEngine {
           for (const otherShipId of system.ships) {
             const otherShip = this.ships.get(otherShipId);
             if (!otherShip || otherShip.isNpc || otherShip.isDestroyed) continue;
-            if (otherShip.state === 'warping' || otherShip.state === 'docked') continue;
+            if (otherShip.state === 'warping' || otherShip.state === 'docked' || otherShip.state === 'damaged') continue;
             if (otherShip.state === 'mining') continue;
             const dx = ship.x - otherShip.x;
             const dy = ship.y - otherShip.y;

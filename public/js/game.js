@@ -1460,12 +1460,15 @@ function openStarbaseScreen() {
   renderStarbaseGrid();
   renderConstructionQueue();
 
+  renderStarbaseFleet();
+
   if (sbRefreshInterval) clearInterval(sbRefreshInterval);
   sbRefreshInterval = setInterval(() => {
     renderStarbaseHeader();
     renderConstructionQueue();
     renderStarbaseGrid();
     renderCategoryBuildings();
+    renderStarbaseFleet();
   }, 1000);
 }
 
@@ -1733,6 +1736,49 @@ function renderConstructionQueue() {
 
   container.innerHTML = html;
   document.getElementById('sb-queue-count').innerHTML = `\u23F1 ${queueCount}`;
+}
+
+function renderStarbaseFleet() {
+  const container = document.getElementById('sb-fleet-list');
+  const countEl = document.getElementById('sb-fleet-count');
+  if (!container || !playerState || !playerState.ships) return;
+
+  const ships = Object.entries(playerState.ships);
+  countEl.textContent = `${ships.length} ship${ships.length !== 1 ? 's' : ''}`;
+
+  let html = '';
+  // Sort: damaged first, then by state
+  const sorted = ships.sort(([, a], [, b]) => {
+    if (a.state === 'damaged' && b.state !== 'damaged') return -1;
+    if (b.state === 'damaged' && a.state !== 'damaged') return 1;
+    return 0;
+  });
+
+  for (const [shipId, ship] of sorted) {
+    const isDamaged = ship.state === 'damaged';
+    const hullPct = ship.maxHull > 0 ? Math.round((ship.hull / ship.maxHull) * 100) : 0;
+    const hullColor = hullPct > 60 ? '#2ecc71' : hullPct > 30 ? '#f39c12' : '#e74c3c';
+    const location = ship.systemId === playerState.homeSystemId
+      ? 'Starbase'
+      : ship.systemId.replace(/_/g, ' ');
+
+    html += `<div class="sb-fleet-ship ${isDamaged ? 'damaged' : ''}" onclick="closeStarbaseScreen(); selectShip('${shipId}')">
+      <span class="sb-fleet-ship-icon" style="color:${ship.color}">${ship.icon}</span>
+      <div class="sb-fleet-ship-name">${ship.className}</div>
+      <div class="sb-fleet-ship-state ${ship.state}">${ship.state}</div>
+      <div class="sb-fleet-ship-location">${location}</div>
+      <div class="sb-fleet-ship-hp">
+        <div class="sb-fleet-ship-hp-fill" style="width:${hullPct}%;background:${hullColor}"></div>
+      </div>
+      ${isDamaged ? `<button class="sb-fleet-repair-btn" onclick="event.stopPropagation(); repairShip('${shipId}')">REPAIR</button>` : ''}
+    </div>`;
+  }
+
+  if (ships.length === 0) {
+    html = '<div style="color:#3a4a5a;font-size:11px;padding:10px;">No ships in fleet</div>';
+  }
+
+  container.innerHTML = html;
 }
 
 // --- Log ---
