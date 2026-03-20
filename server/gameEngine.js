@@ -382,7 +382,7 @@ class GameEngine {
   moveShip(playerId, shipId, targetX, targetY) {
     const ship = this.ships.get(shipId);
     if (!ship || ship.playerId !== playerId) return false;
-    if (ship.state === 'warping' || ship.isDestroyed) return false;
+    if (ship.state === 'warping' || ship.isDestroyed || ship.state === 'damaged') return false;
 
     ship.targetX = Math.max(10, Math.min(790, targetX));
     ship.targetY = Math.max(10, Math.min(590, targetY));
@@ -401,6 +401,7 @@ class GameEngine {
     if (!ship || ship.playerId !== playerId) return { success: false, error: 'Invalid ship' };
     if (ship.state === 'combat') return { success: false, error: 'Cannot warp during combat' };
     if (ship.isDestroyed) return { success: false, error: 'Ship is destroyed' };
+    if (ship.state === 'damaged') return { success: false, error: 'Ship is damaged, repair first' };
 
     const fromSystem = this.systems.get(ship.systemId);
     const toSystem = this.systems.get(targetSystemId);
@@ -444,6 +445,7 @@ class GameEngine {
     if (ship.state === 'combat') return { success: false, error: 'Cannot warp during combat' };
     if (ship.state === 'warping') return { success: false, error: 'Already warping' };
     if (ship.isDestroyed) return { success: false, error: 'Ship is destroyed' };
+    if (ship.state === 'damaged') return { success: false, error: 'Ship is damaged, repair first' };
     if (ship.systemId === targetSystemId) return { success: false, error: 'Already in that system' };
 
     const path = getWarpPath(ship.systemId, targetSystemId);
@@ -505,6 +507,7 @@ class GameEngine {
     const ship = this.ships.get(shipId);
     if (!ship || ship.playerId !== playerId) return { success: false, error: 'Invalid ship' };
     if (ship.miningRate <= 0) return { success: false, error: 'This ship cannot mine' };
+    if (ship.state === 'damaged') return { success: false, error: 'Ship is damaged, repair first' };
     if (ship.state === 'combat') return { success: false, error: 'Cannot mine during combat' };
 
     const system = this.systems.get(ship.systemId);
@@ -606,7 +609,7 @@ class GameEngine {
     ship.hull = ship.maxHull;
     ship.armor = ship.maxArmor;
     ship.shields = ship.maxShields;
-    ship.state = 'docked';
+    ship.state = 'idle';
     return { success: true, cost: repairCost };
   }
 

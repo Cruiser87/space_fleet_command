@@ -155,7 +155,8 @@ function joinGame() {
 
   socket.on('repairResult', (data) => {
     if (data.success) {
-      addLog('Ship repaired and ready for duty!', 'info');
+      addLog('Ship repaired and ready for duty! Select it to mine, warp, or fight.', 'info');
+      showEventBanner('Ship Repaired!');
       updateShipInfoPanel();
     } else {
       addLog(`Repair failed: ${data.error}`, 'warning');
