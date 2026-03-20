@@ -840,7 +840,7 @@ const NPC_SHIPS = {
 };
 
 const NPC_SPAWN_TABLE = {
-  1:  { types: ['raider'], count: 3 },
+  1:  { types: [], count: 0 },
   2:  { types: ['raider', 'marauder'], count: 4 },
   3:  { types: ['raider', 'marauder'], count: 5 },
   4:  { types: ['marauder', 'destroyer'], count: 4 },
