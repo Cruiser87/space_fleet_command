@@ -816,72 +816,10 @@ function showMiningMenu(shipId) {
   document.getElementById('game-area').appendChild(menu);
 }
 
-// --- Side Panel: Starbase ---
+// --- Starbase (opens full screen) ---
 
 function openStarbase() {
-  const panel = document.getElementById('side-panel');
-  panel.style.display = 'flex';
-  document.getElementById('side-panel-title').textContent = 'STARBASE';
-
-  const content = document.getElementById('side-panel-content');
-  let html = '<div class="starbase-info"><h4>Resources</h4><div class="starbase-resources">';
-
-  const resNames = { stellite: 'Stellite', ferronite: 'Ferronite', nexium: 'Nexium', pyrathium: 'Pyrathium', aurelium: 'Aurelium' };
-  const resColors = { stellite: '#E67E22', ferronite: '#8B8B8B', nexium: '#9B59B6', pyrathium: '#E74C3C', aurelium: '#F1C40F' };
-
-  for (const [key, name] of Object.entries(resNames)) {
-    const amount = Math.floor(playerState.resources[key] || 0);
-    html += `<div class="starbase-res-row">
-      <span class="starbase-res-name" style="color:${resColors[key]}">${name}</span>
-      <span class="starbase-res-amount">${formatNum(amount)}</span>
-    </div>`;
-  }
-  html += '</div></div>';
-
-  // Buildings summary
-  if (playerState.starbase && playerState.starbase.buildings) {
-    html += '<div class="panel-section-title">Buildings</div>';
-    for (const [bId, bState] of Object.entries(playerState.starbase.buildings)) {
-      const bType = buildingTypes[bId];
-      const bName = bType ? bType.name : bId.replace(/_/g, ' ');
-      html += `<div class="starbase-res-row">
-        <span class="starbase-res-name">${bName}</span>
-        <span class="starbase-res-amount" style="color:#5dade2;">Lv ${bState.level}</span>
-      </div>`;
-    }
-  }
-
-  // All player ships
-  html += '<div class="docked-ships"><h4>Fleet</h4>';
-  if (playerState && playerState.ships) {
-    for (const [shipId, ship] of Object.entries(playerState.ships)) {
-      const inHomeSystem = ship.systemId === playerState.homeSystemId;
-      const locationLabel = inHomeSystem ? 'Home' : ship.systemId.replace(/_/g, ' ');
-      let actionBtn = '';
-
-      if (ship.state === 'damaged') {
-        actionBtn = `<button class="action-btn danger" style="padding:2px 8px;font-size:10px;" onclick="repairShip('${shipId}')">REPAIR</button>`;
-      } else if (!inHomeSystem) {
-        actionBtn = `<button class="action-btn" style="padding:2px 8px;font-size:10px;" onclick="recallShip('${shipId}')">RECALL</button>`;
-      }
-
-      html += `<div class="docked-ship-item">
-        <span style="color:${ship.color}">${ship.icon} ${ship.className}</span>
-        <span style="color:#7f8c8d;font-size:10px;">${ship.state} · ${locationLabel}</span>
-        ${actionBtn}
-      </div>`;
-    }
-  }
-  html += '</div>';
-
-  // Action buttons
-  html += `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-    <button class="build-btn" onclick="openBuildMenu()">BUILD SHIP</button>
-    <button class="build-btn" onclick="openUpgradeMenu()">UPGRADE</button>
-    <button class="build-btn" onclick="openBuildingsPanel()">BUILDINGS</button>
-  </div>`;
-
-  content.innerHTML = html;
+  openStarbaseScreen();
 }
 
 // --- Side Panel: Build Ships ---
@@ -1008,73 +946,10 @@ function upgradeShip(shipId, component) {
   socket.emit('upgradeShip', { shipId, component });
 }
 
-// --- Side Panel: Buildings ---
+// --- Buildings (opens starbase screen) ---
 
 function openBuildingsPanel() {
-  const panel = document.getElementById('side-panel');
-  panel.style.display = 'flex';
-  document.getElementById('side-panel-title').textContent = 'BUILDINGS';
-
-  const content = document.getElementById('side-panel-content');
-  let html = '';
-
-  const buildings = playerState.starbase ? playerState.starbase.buildings : {};
-
-  for (const [bId, bType] of Object.entries(buildingTypes)) {
-    const bState = buildings[bId] || { level: 0, upgrading: false };
-    const currentLevel = bState.level;
-    const isMaxed = currentLevel >= 10;
-    const isUpgrading = bState.upgrading;
-
-    html += `<div class="building-item">
-      <div class="building-header">
-        <span class="building-name">${bType.name}</span>
-        <span class="building-level">Level ${currentLevel}/10</span>
-      </div>
-      <div class="building-desc">${bType.description || ''}</div>`;
-
-    // Show current effect
-    if (currentLevel > 0 && bType.levels && bType.levels[currentLevel - 1]) {
-      const effect = bType.levels[currentLevel - 1].effect;
-      if (effect) {
-        const effectText = Object.entries(effect).map(([k, v]) => `${k}: +${Math.round(v * 100)}%`).join(', ');
-        html += `<div class="building-effect">Current: ${effectText}</div>`;
-      }
-    }
-
-    if (isUpgrading) {
-      const timeLeft = Math.max(0, Math.ceil((bState.upgradeCompleteTime - Date.now()) / 1000));
-      html += `<div class="building-upgrading">Upgrading... ${formatTime(timeLeft)}</div>`;
-    } else if (!isMaxed) {
-      const nextLevel = bType.levels[currentLevel];
-      if (nextLevel) {
-        html += '<div class="build-item-cost">';
-        let canAfford = true;
-        for (const [res, amount] of Object.entries(nextLevel.cost)) {
-          const have = playerState.resources[res] || 0;
-          const sufficient = have >= amount;
-          if (!sufficient) canAfford = false;
-          html += `<span class="cost-entry ${sufficient ? '' : 'insufficient'}">${res}: ${formatNum(amount)}</span>`;
-        }
-        html += '</div>';
-
-        // Show next level effect
-        if (nextLevel.effect) {
-          const effectText = Object.entries(nextLevel.effect).map(([k, v]) => `${k}: +${Math.round(v * 100)}%`).join(', ');
-          html += `<div style="font-size:10px;color:#3498db;margin:2px 0;">Next: ${effectText}</div>`;
-        }
-
-        html += `<div style="font-size:10px;color:#7f8c8d;margin:2px 0;">Build time: ${formatTime(nextLevel.buildTime)}</div>`;
-        html += `<button class="upgrade-btn" ${canAfford ? '' : 'disabled'} onclick="upgradeBuilding('${bId}')">UPGRADE TO LEVEL ${currentLevel + 1}</button>`;
-      }
-    } else {
-      html += '<div style="color:#2ecc71;font-size:11px;margin-top:4px;">MAX LEVEL</div>';
-    }
-
-    html += '</div>';
-  }
-
-  content.innerHTML = html;
+  openStarbaseScreen();
 }
 
 function upgradeBuilding(buildingId) {
@@ -1519,6 +1394,311 @@ function showEventBanner(text) {
 
 function closeSidePanel() {
   document.getElementById('side-panel').style.display = 'none';
+}
+
+// =============================================================
+// STARBASE SCREEN — Full overlay base management view
+// =============================================================
+
+const BUILDING_CATEGORIES = {
+  defense:    { name: 'Defense',    desc: 'Protective systems and weapons',   icon: '\u{1F6E1}', color: '#E74C3C' },
+  production: { name: 'Production', desc: 'Resource generation facilities',   icon: '\u2699',    color: '#2ECC71' },
+  research:   { name: 'Research',   desc: 'Technology advancement labs',      icon: '\u{1F52C}', color: '#3498DB' },
+  shipyard:   { name: 'Shipyard',   desc: 'Ship construction and repair',    icon: '\u{1F680}', color: '#F1C40F' },
+};
+
+const BUILDING_UI_MAP = {
+  shield_generator:  { category: 'defense',    icon: '\u{1F6E1}', gridPos: { left: 18, top: 8 }  },
+  defense_platform:  { category: 'defense',    icon: '\u2694',     gridPos: { left: 43, top: 4 }  },
+  refinery:          { category: 'production', icon: '\u2699',     gridPos: { left: 68, top: 8 }  },
+  warehouse:         { category: 'production', icon: '\u{1F4E6}',  gridPos: { left: 12, top: 42 } },
+  research_center:   { category: 'research',   icon: '\u{1F52C}',  gridPos: { left: 68, top: 42 } },
+  shipyard:          { category: 'shipyard',   icon: '\u{1F680}',  gridPos: { left: 18, top: 72 } },
+};
+
+let currentSBCategory = 'defense';
+let sbRefreshInterval = null;
+
+function openStarbaseScreen() {
+  document.getElementById('starbase-screen').style.display = 'flex';
+  renderStarbaseHeader();
+  renderStarbaseCategories();
+  renderStarbaseGrid();
+  renderConstructionQueue();
+
+  if (sbRefreshInterval) clearInterval(sbRefreshInterval);
+  sbRefreshInterval = setInterval(() => {
+    renderStarbaseHeader();
+    renderConstructionQueue();
+    renderStarbaseGrid();
+    renderCategoryBuildings();
+  }, 1000);
+}
+
+function closeStarbaseScreen() {
+  document.getElementById('starbase-screen').style.display = 'none';
+  if (sbRefreshInterval) {
+    clearInterval(sbRefreshInterval);
+    sbRefreshInterval = null;
+  }
+}
+
+function sbSwitchTab(tab) {
+  document.getElementById('sb-tab-overview').classList.toggle('active', tab === 'overview');
+  document.getElementById('sb-tab-construction').classList.toggle('active', tab === 'construction');
+  // Both tabs show the same grid for now — construction tab could filter to upgrading only
+  renderStarbaseGrid();
+}
+
+function renderStarbaseHeader() {
+  const resContainer = document.getElementById('sb-resources');
+  const resInfo = [
+    { key: 'stellite',  name: 'Stellite',  color: '#E67E22', icon: '\u25C6' },
+    { key: 'ferronite', name: 'Ferronite', color: '#8B8B8B', icon: '\u25C6' },
+    { key: 'nexium',    name: 'Nexium',    color: '#9B59B6', icon: '\u25C6' },
+    { key: 'pyrathium', name: 'Pyrathium', color: '#E74C3C', icon: '\u25C6' },
+    { key: 'aurelium',  name: 'Aurelium',  color: '#F1C40F', icon: '\u25C6' },
+  ];
+
+  let html = '';
+  for (const r of resInfo) {
+    const amount = formatNum(Math.floor(playerState.resources[r.key] || 0));
+    html += `<div class="sb-res-item">
+      <span class="sb-res-icon" style="color:${r.color}">${r.icon}</span>
+      <div>
+        <div class="sb-res-amount" style="color:${r.color}">${amount}</div>
+        <div class="sb-res-label">${r.name}</div>
+      </div>
+    </div>`;
+  }
+  resContainer.innerHTML = html;
+
+  const officerCount = (playerState.officers || []).length;
+  const totalOfficers = Object.keys(officerData).length;
+  document.getElementById('sb-officers-count').innerHTML = `\u2734 ${officerCount}/${totalOfficers} Officers`;
+}
+
+function renderStarbaseCategories() {
+  const container = document.getElementById('sb-category-list');
+  let html = '';
+
+  for (const [catId, cat] of Object.entries(BUILDING_CATEGORIES)) {
+    const isActive = catId === currentSBCategory;
+    html += `<div class="sb-cat-item ${isActive ? 'active' : ''}" style="--cat-color:${cat.color}" onclick="selectSBCategory('${catId}')">
+      <span class="sb-cat-icon">${cat.icon}</span>
+      <div>
+        <div class="sb-cat-name">${cat.name}</div>
+        <div class="sb-cat-desc">${cat.desc}</div>
+      </div>
+    </div>`;
+  }
+
+  container.innerHTML = html;
+  renderCategoryBuildings();
+}
+
+function selectSBCategory(category) {
+  currentSBCategory = category;
+  renderStarbaseCategories();
+}
+
+function renderCategoryBuildings() {
+  const container = document.getElementById('sb-category-buildings');
+  const buildings = playerState.starbase ? playerState.starbase.buildings : {};
+  const RES_COLORS = { stellite: '#E67E22', ferronite: '#8B8B8B', nexium: '#9B59B6', pyrathium: '#E74C3C', aurelium: '#F1C40F' };
+
+  let html = '';
+
+  for (const [bId, uiInfo] of Object.entries(BUILDING_UI_MAP)) {
+    if (uiInfo.category !== currentSBCategory) continue;
+
+    const bType = buildingTypes[bId];
+    if (!bType) continue;
+
+    const bState = buildings[bId] || { level: 0, upgrading: false };
+    const currentLevel = bState.level;
+    const isMaxed = currentLevel >= 10;
+    const isUpgrading = bState.upgrading;
+    const cat = BUILDING_CATEGORIES[uiInfo.category];
+    const catColor = cat ? cat.color : '#5dade2';
+
+    // Current effect text
+    let effectText = '';
+    if (currentLevel > 0 && bType.levels && bType.levels[currentLevel - 1]) {
+      const effect = bType.levels[currentLevel - 1].effect;
+      if (effect) {
+        effectText = Object.entries(effect)
+          .map(([k, v]) => `${k.replace(/([A-Z])/g, ' $1').trim()}: +${Math.round(v * 100)}%`)
+          .join(', ');
+      }
+    }
+
+    // Cost for next level
+    let costHtml = '';
+    let canAfford = true;
+    if (!isMaxed && bType.levels && bType.levels[currentLevel]) {
+      const nextLevel = bType.levels[currentLevel];
+      for (const [res, amount] of Object.entries(nextLevel.cost)) {
+        const have = playerState.resources[res] || 0;
+        const sufficient = have >= amount;
+        if (!sufficient) canAfford = false;
+        const rc = RES_COLORS[res] || '#bdc3c7';
+        costHtml += `<span style="color:${sufficient ? rc : '#e74c3c'}">\u25C6 ${formatNum(amount)}</span>`;
+      }
+      costHtml += `<span style="color:#5a6a7a">\u23F1 ${formatTime(nextLevel.buildTime)}</span>`;
+    }
+
+    const canUpgrade = !isMaxed && !isUpgrading && canAfford;
+
+    // Badge
+    let badgeHtml = '';
+    if (isUpgrading) {
+      badgeHtml = '<div class="sb-building-card-badge" style="background:#e67e22">Upgrading</div>';
+    } else if (canUpgrade) {
+      badgeHtml = '<div class="sb-building-card-badge">Upgradeable</div>';
+    } else if (isMaxed) {
+      badgeHtml = '<div class="sb-building-card-badge" style="background:#3498db">Max Level</div>';
+    }
+
+    html += `<div class="sb-building-card" style="--cat-color:${catColor}" onclick="${canUpgrade ? `upgradeBuilding('${bId}')` : ''}">
+      <div class="sb-building-card-img" style="background:linear-gradient(135deg, ${catColor}22, ${catColor}08)">
+        <span style="font-size:36px;opacity:0.5">${uiInfo.icon}</span>
+        <div class="sb-building-card-level">Level ${currentLevel}</div>
+        ${badgeHtml}
+      </div>
+      <div class="sb-building-card-body">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="sb-building-card-name">${bType.name}</span>
+          <span class="sb-building-card-stars" style="color:${catColor}">\u2606 ${currentLevel}/10</span>
+        </div>
+        <div class="sb-building-card-stats">${effectText || 'No bonuses yet'}</div>
+        ${costHtml ? `<div class="sb-building-card-costs">${costHtml} \u203A</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  if (!html) {
+    html = '<div style="color:#3a4a5a;font-size:11px;padding:16px;text-align:center;">No buildings in this category</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function renderStarbaseGrid() {
+  const grid = document.getElementById('sb-grid');
+  const buildings = playerState.starbase ? playerState.starbase.buildings : {};
+  let html = '';
+
+  // Power core in the center
+  html += `<div class="sb-power-core" style="left:calc(50% - 30px);top:calc(45% - 30px);">
+    <span>\u26A1</span>
+  </div>`;
+
+  // Building slots
+  for (const [bId, uiInfo] of Object.entries(BUILDING_UI_MAP)) {
+    const bType = buildingTypes[bId];
+    if (!bType) continue;
+
+    const bState = buildings[bId] || { level: 0, upgrading: false };
+    const currentLevel = bState.level;
+    const isUpgrading = bState.upgrading;
+
+    let progressHtml = '';
+    if (isUpgrading && bState.upgradeCompleteTime) {
+      const now = Date.now();
+      const remaining = Math.max(0, bState.upgradeCompleteTime - now);
+      const totalBuildTime = (bType.levels && bType.levels[currentLevel])
+        ? bType.levels[currentLevel].buildTime * 1000
+        : 60000;
+      const elapsed = totalBuildTime - remaining;
+      const pct = Math.min(100, Math.max(0, Math.round((elapsed / totalBuildTime) * 100)));
+
+      progressHtml = `<div class="sb-slot-progress">
+        <div class="sb-slot-progress-text">\u{1F527} Building... ${pct}%</div>
+        <div class="sb-slot-progress-bar"><div class="sb-slot-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }
+
+    html += `<div class="sb-slot ${uiInfo.category}" style="left:${uiInfo.gridPos.left}%;top:${uiInfo.gridPos.top}%;"
+      onclick="selectSBCategory('${uiInfo.category}')">
+      <span class="sb-slot-icon">${uiInfo.icon}</span>
+      <span class="sb-slot-name">${bType.name}</span>
+      <span class="sb-slot-level">Lv ${currentLevel}</span>
+      ${progressHtml}
+    </div>`;
+  }
+
+  // Locked/empty expansion slots
+  html += `<div class="sb-slot" style="left:43%;top:72%;opacity:0.3;cursor:default;">
+    <span class="sb-slot-icon" style="opacity:0.3">+</span>
+    <span class="sb-slot-name" style="color:#3a4a5a">Locked</span>
+  </div>`;
+  html += `<div class="sb-slot" style="left:68%;top:72%;opacity:0.3;cursor:default;">
+    <span class="sb-slot-icon" style="opacity:0.3">+</span>
+    <span class="sb-slot-name" style="color:#3a4a5a">Locked</span>
+  </div>`;
+
+  grid.innerHTML = html;
+}
+
+function renderConstructionQueue() {
+  const container = document.getElementById('sb-queue-items');
+  const buildings = playerState.starbase ? playerState.starbase.buildings : {};
+  let html = '';
+  let queueCount = 0;
+
+  for (const [bId, bState] of Object.entries(buildings)) {
+    if (!bState.upgrading) continue;
+    queueCount++;
+
+    const bType = buildingTypes[bId];
+    const uiInfo = BUILDING_UI_MAP[bId];
+    const cat = uiInfo ? BUILDING_CATEGORIES[uiInfo.category] : null;
+    const catColor = cat ? cat.color : '#5dade2';
+    const icon = uiInfo ? uiInfo.icon : '\u{1F3D7}';
+    const name = bType ? bType.name : bId.replace(/_/g, ' ');
+    const nextLevel = bState.level + 1;
+
+    const now = Date.now();
+    const remaining = Math.max(0, (bState.upgradeCompleteTime || 0) - now);
+    const totalBuildTime = (bType && bType.levels && bType.levels[bState.level])
+      ? bType.levels[bState.level].buildTime * 1000
+      : 60000;
+    const elapsed = totalBuildTime - remaining;
+    const pct = Math.min(100, Math.max(0, Math.round((elapsed / totalBuildTime) * 100)));
+    const timeStr = formatTime(Math.ceil(remaining / 1000));
+
+    html += `<div class="sb-queue-item" style="border-left:3px solid ${catColor}">
+      <div class="sb-queue-item-header">
+        <div class="sb-queue-item-title">
+          <span class="sb-queue-item-icon">${icon}</span>
+          <div class="sb-queue-item-info">
+            <div class="sb-queue-item-name">${name}</div>
+            <div class="sb-queue-item-level">Level ${nextLevel}</div>
+          </div>
+        </div>
+        <button class="sb-queue-item-cancel">&times;</button>
+      </div>
+      <div class="sb-queue-item-row">
+        <span class="sb-queue-item-label">Construction Progress</span>
+        <span class="sb-queue-item-value">${pct}%</span>
+      </div>
+      <div class="sb-queue-progress-bar">
+        <div class="sb-queue-progress-fill" style="width:${pct}%"></div>
+      </div>
+      <div class="sb-queue-item-row">
+        <span class="sb-queue-item-label">Time Remaining</span>
+        <span class="sb-queue-item-value time">${timeStr}</span>
+      </div>
+    </div>`;
+  }
+
+  if (queueCount === 0) {
+    html = '<div class="sb-queue-empty">No active construction projects.<br>Select a building category to start upgrading.</div>';
+  }
+
+  container.innerHTML = html;
+  document.getElementById('sb-queue-count').innerHTML = `\u23F1 ${queueCount}`;
 }
 
 // --- Log ---

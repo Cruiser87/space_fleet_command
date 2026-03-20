@@ -119,6 +119,62 @@
         <button onclick="sendAllianceChat()">Send</button>
       </div>
     </div>
+
+    <!-- Starbase Screen (Full Overlay) -->
+    <div id="starbase-screen" style="display:none;">
+      <div class="sb-header">
+        <div class="sb-header-left">
+          <div class="sb-icon">&#9878;</div>
+          <div>
+            <div class="sb-title">Starbase Construction</div>
+            <div class="sb-subtitle">Build and upgrade your strategic stronghold</div>
+          </div>
+        </div>
+        <div class="sb-header-resources" id="sb-resources"></div>
+        <div class="sb-header-right">
+          <div class="sb-officers" id="sb-officers-count">&#9734; 0 Officers</div>
+          <button class="sb-close-btn" onclick="closeStarbaseScreen()">&times;</button>
+        </div>
+      </div>
+      <div class="sb-body">
+        <div class="sb-categories">
+          <h3 class="sb-section-title">Building Categories</h3>
+          <div id="sb-category-list"></div>
+          <div id="sb-category-buildings"></div>
+        </div>
+        <div class="sb-overview">
+          <div class="sb-overview-header">
+            <h3>Starbase Overview</h3>
+            <div class="sb-overview-tabs">
+              <button class="sb-tab active" id="sb-tab-overview" onclick="sbSwitchTab('overview')">Overview</button>
+              <button class="sb-tab" id="sb-tab-construction" onclick="sbSwitchTab('construction')">Construction</button>
+            </div>
+            <div class="sb-overview-tools">
+              <button class="sb-tool-btn" title="Refresh" onclick="renderStarbaseGrid()">&#8634;</button>
+              <button class="sb-tool-btn" title="Zoom">&#128269;</button>
+            </div>
+          </div>
+          <div class="sb-grid-container" id="sb-grid"></div>
+        </div>
+        <div class="sb-queue">
+          <div class="sb-queue-header">
+            <div>
+              <h3>Construction Queue</h3>
+              <div class="sb-queue-desc">Manage your building projects and priorities</div>
+            </div>
+            <span class="sb-queue-badge" id="sb-queue-count">&#9201; 0</span>
+          </div>
+          <div id="sb-queue-items"></div>
+        </div>
+      </div>
+      <div class="sb-bottom-nav">
+        <button onclick="closeStarbaseScreen(); showGalaxyView()"><span>&#127760;</span>Galaxy</button>
+        <button onclick="closeStarbaseScreen(); showSystemView()"><span>&#128640;</span>Fleet</button>
+        <button onclick="closeStarbaseScreen(); showSystemView()"><span>&#9876;</span>Combat</button>
+        <button class="active"><span>&#127959;</span>Base</button>
+        <button onclick="closeStarbaseScreen(); openFactionsPanel()"><span>&#128300;</span>Research</button>
+      </div>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
