@@ -741,3 +741,559 @@ canvas {
 
 .warp-option .warp-type-safe { color: #2ecc71; }
 .warp-option .warp-type-dangerous { color: #e74c3c; }
+
+/* --- FACTION LABEL --- */
+
+#faction-label {
+  position: absolute;
+  top: 58px;
+  right: 10px;
+  padding: 6px 14px;
+  background: rgba(10, 18, 32, 0.85);
+  border: 1px solid rgba(52, 152, 219, 0.2);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  z-index: 5;
+}
+
+#system-info-faction {
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+/* --- ALLIANCE TAG --- */
+
+#alliance-tag-display {
+  font-size: 11px;
+  color: #f39c12;
+  margin-left: 8px;
+  font-weight: 600;
+}
+
+/* --- BUILDINGS PANEL --- */
+
+.building-item {
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: rgba(20, 30, 50, 0.5);
+  border: 1px solid rgba(52, 152, 219, 0.1);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.building-item:hover {
+  background: rgba(52, 152, 219, 0.1);
+  border-color: rgba(52, 152, 219, 0.3);
+}
+
+.building-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.building-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ecf0f1;
+}
+
+.building-level {
+  font-size: 11px;
+  color: #5dade2;
+  font-weight: 600;
+}
+
+.building-desc {
+  font-size: 11px;
+  color: #95a5a6;
+  margin-bottom: 6px;
+}
+
+.building-effect {
+  font-size: 11px;
+  color: #2ecc71;
+  margin-bottom: 6px;
+}
+
+.building-upgrading {
+  font-size: 11px;
+  color: #f39c12;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+/* --- OFFICERS PANEL --- */
+
+.officer-item {
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: rgba(20, 30, 50, 0.5);
+  border: 1px solid rgba(52, 152, 219, 0.1);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.officer-item:hover {
+  border-color: rgba(52, 152, 219, 0.3);
+}
+
+.officer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.officer-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.officer-rarity {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.3);
+}
+
+.officer-rarity.common { color: #95a5a6; }
+.officer-rarity.uncommon { color: #2ecc71; }
+.officer-rarity.rare { color: #3498db; }
+.officer-rarity.epic { color: #9b59b6; }
+.officer-rarity.legendary { color: #f1c40f; }
+
+.officer-passive {
+  font-size: 11px;
+  color: #2ecc71;
+  margin-bottom: 2px;
+}
+
+.officer-active {
+  font-size: 11px;
+  color: #e67e22;
+  margin-bottom: 4px;
+}
+
+.officer-faction-req {
+  font-size: 10px;
+  color: #e74c3c;
+}
+
+.officer-assigned {
+  font-size: 10px;
+  color: #7f8c8d;
+  font-style: italic;
+}
+
+/* --- MISSIONS PANEL --- */
+
+.mission-item {
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: rgba(20, 30, 50, 0.5);
+  border: 1px solid rgba(52, 152, 219, 0.1);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.mission-item:hover {
+  border-color: rgba(52, 152, 219, 0.3);
+}
+
+.mission-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.mission-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ecf0f1;
+}
+
+.mission-type {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.3);
+}
+
+.mission-type.daily { color: #2ecc71; }
+.mission-type.story { color: #9b59b6; }
+.mission-type.faction { color: #e67e22; }
+
+.mission-desc {
+  font-size: 11px;
+  color: #95a5a6;
+  margin-bottom: 6px;
+}
+
+.mission-progress {
+  margin-bottom: 6px;
+}
+
+.progress-bar {
+  height: 6px;
+  background: rgba(52, 152, 219, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 3px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #3498db;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.progress-fill.complete {
+  background: #2ecc71;
+}
+
+.progress-text {
+  font-size: 10px;
+  color: #7f8c8d;
+}
+
+.mission-rewards {
+  font-size: 10px;
+  color: #f39c12;
+  margin-bottom: 4px;
+}
+
+/* --- FACTIONS PANEL --- */
+
+.faction-item {
+  padding: 12px;
+  margin-bottom: 10px;
+  background: rgba(20, 30, 50, 0.5);
+  border: 1px solid rgba(52, 152, 219, 0.1);
+  border-radius: 6px;
+}
+
+.faction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.faction-name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.faction-tier {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.3);
+}
+
+.faction-desc {
+  font-size: 11px;
+  color: #95a5a6;
+  margin-bottom: 6px;
+}
+
+.faction-rep-bar {
+  height: 8px;
+  background: rgba(52, 152, 219, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.faction-rep-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.faction-rep-text {
+  font-size: 10px;
+  color: #7f8c8d;
+}
+
+.faction-bonus {
+  font-size: 11px;
+  color: #2ecc71;
+  margin-top: 4px;
+}
+
+/* --- ALLIANCE PANEL --- */
+
+.alliance-info {
+  padding: 12px;
+  margin-bottom: 10px;
+  background: rgba(20, 30, 50, 0.5);
+  border: 1px solid rgba(52, 152, 219, 0.1);
+  border-radius: 6px;
+}
+
+.alliance-name-display {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f39c12;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.alliance-member {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: rgba(20, 30, 50, 0.4);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.alliance-member-role {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.alliance-member-role.leader { color: #f1c40f; }
+.alliance-member-role.officer { color: #3498db; }
+.alliance-member-role.member { color: #7f8c8d; }
+
+.alliance-create-form {
+  padding: 12px;
+  background: rgba(20, 30, 50, 0.5);
+  border: 1px solid rgba(52, 152, 219, 0.1);
+  border-radius: 6px;
+}
+
+.alliance-create-form input {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  background: rgba(20, 30, 50, 0.8);
+  border: 1px solid rgba(52, 152, 219, 0.3);
+  border-radius: 4px;
+  color: #e0e0e0;
+  outline: none;
+}
+
+.alliance-create-form input:focus {
+  border-color: #3498db;
+}
+
+/* --- ALLIANCE CHAT --- */
+
+#alliance-chat-panel {
+  position: absolute;
+  bottom: 190px;
+  right: 10px;
+  width: 280px;
+  height: 300px;
+  background: rgba(10, 18, 32, 0.95);
+  border: 1px solid rgba(52, 152, 219, 0.3);
+  border-radius: 8px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(52, 152, 219, 0.1);
+  border-bottom: 1px solid rgba(52, 152, 219, 0.15);
+  font-size: 12px;
+  font-weight: 600;
+  color: #5dade2;
+  letter-spacing: 1px;
+}
+
+#alliance-chat-messages {
+  flex: 1;
+  padding: 8px;
+  overflow-y: auto;
+  font-size: 11px;
+}
+
+.chat-msg {
+  margin-bottom: 4px;
+  line-height: 1.4;
+  color: #bdc3c7;
+}
+
+.chat-msg .chat-sender {
+  color: #f39c12;
+  font-weight: 600;
+}
+
+.chat-input-row {
+  display: flex;
+  padding: 6px;
+  gap: 4px;
+  border-top: 1px solid rgba(52, 152, 219, 0.15);
+}
+
+.chat-input-row input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: rgba(20, 30, 50, 0.8);
+  border: 1px solid rgba(52, 152, 219, 0.2);
+  border-radius: 4px;
+  color: #e0e0e0;
+  outline: none;
+}
+
+.chat-input-row button {
+  padding: 6px 12px;
+  font-size: 11px;
+  background: linear-gradient(135deg, #1a5276, #2980b9);
+  border: 1px solid rgba(52, 152, 219, 0.5);
+  border-radius: 4px;
+  color: #ecf0f1;
+  cursor: pointer;
+}
+
+/* --- EVENT BANNER --- */
+
+#event-banner {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 30px;
+  background: rgba(10, 18, 32, 0.95);
+  border: 1px solid #f1c40f;
+  border-radius: 8px;
+  z-index: 20;
+  text-align: center;
+  box-shadow: 0 0 30px rgba(241, 196, 15, 0.2);
+  animation: bannerFadeIn 0.3s ease-out;
+}
+
+@keyframes bannerFadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+#event-banner-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1c40f;
+  letter-spacing: 1px;
+}
+
+/* --- SECTION HEADERS IN PANELS --- */
+
+.panel-section-title {
+  font-size: 11px;
+  color: #5dade2;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin: 12px 0 8px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(52, 152, 219, 0.1);
+}
+
+.panel-section-title:first-child {
+  margin-top: 0;
+}
+
+/* --- TAB NAVIGATION IN PANELS --- */
+
+.panel-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 12px;
+  background: rgba(20, 30, 50, 0.5);
+  border-radius: 6px;
+  padding: 3px;
+}
+
+.panel-tab {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 11px;
+  text-align: center;
+  color: #7f8c8d;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  border: none;
+  background: none;
+  letter-spacing: 0.5px;
+}
+
+.panel-tab:hover {
+  color: #bdc3c7;
+  background: rgba(52, 152, 219, 0.1);
+}
+
+.panel-tab.active {
+  color: #5dade2;
+  background: rgba(52, 152, 219, 0.15);
+  font-weight: 600;
+}
+
+/* --- INVITE INPUT --- */
+
+.invite-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.invite-row input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: rgba(20, 30, 50, 0.8);
+  border: 1px solid rgba(52, 152, 219, 0.3);
+  border-radius: 4px;
+  color: #e0e0e0;
+  outline: none;
+}
+
+/* --- COMBAT ROLE BADGE --- */
+
+.combat-role-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-left: 6px;
+}
+
+.combat-role-badge.explorer { color: #2ecc71; background: rgba(46,204,113,0.15); }
+.combat-role-badge.interceptor { color: #e74c3c; background: rgba(231,76,60,0.15); }
+.combat-role-badge.battleship { color: #3498db; background: rgba(52,152,219,0.15); }

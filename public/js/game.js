@@ -12,6 +12,10 @@ let selectedShipId = null;
 let currentView = 'system'; // 'galaxy' or 'system'
 let shipClasses = {};
 let upgradeTiers = {};
+let factionData = {};
+let buildingTypes = {};
+let officerData = {};
+let officerRarities = {};
 
 // --- Helper: get ship data from any source ---
 function getShipData(shipId) {
@@ -55,6 +59,10 @@ function joinGame() {
     galaxyData = data.galaxy;
     shipClasses = data.shipClasses;
     upgradeTiers = data.upgradeTiers;
+    factionData = data.factions || {};
+    buildingTypes = data.buildingTypes || {};
+    officerData = data.officers || {};
+    officerRarities = data.officerRarities || {};
 
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'flex';
@@ -62,6 +70,7 @@ function joinGame() {
 
     updateResourceDisplay();
     updateShipList();
+    updateAllianceTag();
     showSystemView();
     addLog('Welcome, ' + playerState.name + '! Your fleet awaits.', 'info');
     addLog('Left-click ships to select. Right-click for actions.', 'info');
@@ -82,6 +91,7 @@ function joinGame() {
     playerState = state;
     updateResourceDisplay();
     updateShipList();
+    updateAllianceTag();
     // Refresh ship info panel if a ship is selected
     if (selectedShipId) updateShipInfoPanel();
   });
@@ -155,6 +165,130 @@ function joinGame() {
       addLog(`Upgrade failed: ${data.error}`, 'warning');
     }
   });
+
+  // --- New System Socket Handlers ---
+
+  socket.on('upgradeBuildingResult', (data) => {
+    if (data.success) {
+      addLog(`${data.buildingId.replace(/_/g, ' ')} upgrade started!`, 'info');
+      showEventBanner('Building upgrade started!');
+      openBuildingsPanel();
+    } else {
+      addLog(`Building upgrade failed: ${data.error}`, 'warning');
+    }
+  });
+
+  socket.on('recruitOfficerResult', (data) => {
+    if (data.success) {
+      addLog(`Officer recruited!`, 'info');
+      showEventBanner('New officer recruited!');
+      openOfficersPanel();
+    } else {
+      addLog(`Recruit failed: ${data.error}`, 'warning');
+    }
+  });
+
+  socket.on('assignOfficerResult', (data) => {
+    if (data.success) {
+      addLog('Officer assigned to ship.', 'info');
+      openOfficersPanel();
+    } else {
+      addLog(`Assign failed: ${data.error}`, 'warning');
+    }
+  });
+
+  socket.on('unassignOfficerResult', (data) => {
+    if (data.success) {
+      addLog('Officer unassigned.', 'info');
+      openOfficersPanel();
+    } else {
+      addLog(`Unassign failed: ${data.error}`, 'warning');
+    }
+  });
+
+  socket.on('activateAbilityResult', (data) => {
+    if (data.success) {
+      addLog(`Captain maneuver activated!`, 'combat');
+      showEventBanner('Captain Maneuver Activated!');
+    } else {
+      addLog(`Ability failed: ${data.error}`, 'warning');
+    }
+  });
+
+  socket.on('acceptMissionResult', (data) => {
+    if (data.success) {
+      addLog('Mission accepted!', 'info');
+      openMissionsPanel();
+    } else {
+      addLog(`Mission failed: ${data.error}`, 'warning');
+    }
+  });
+
+  socket.on('missionsList', (data) => {
+    renderMissionsList(data);
+  });
+
+  socket.on('createAllianceResult', (data) => {
+    if (data.success) {
+      addLog(`Alliance created!`, 'info');
+      showEventBanner('Alliance Founded!');
+      openAlliancePanel();
+    } else {
+      addLog(`Create alliance failed: ${data.error}`, 'warning');
+    }
+  });
+
+  socket.on('inviteResult', (data) => {
+    if (data.success) {
+      addLog(`Invitation sent!`, 'info');
+    } else {
+      addLog(`Invite failed: ${data.error}`, 'warning');
+    }
+  });
+
+  socket.on('allianceInvite', (data) => {
+    addLog(`Alliance invite from ${data.fromPlayer}: ${data.allianceName}`, 'info');
+    showEventBanner(`Alliance invite: ${data.allianceName}!`);
+    // Auto-show accept option
+    if (confirm(`${data.fromPlayer} invited you to join ${data.allianceName}. Accept?`)) {
+      socket.emit('acceptAllianceInvite', { allianceId: data.allianceId });
+    }
+  });
+
+  socket.on('acceptInviteResult', (data) => {
+    if (data.success) {
+      addLog('Joined alliance!', 'info');
+      showEventBanner('Alliance Joined!');
+      openAlliancePanel();
+    } else {
+      addLog(`Join failed: ${data.error}`, 'warning');
+    }
+  });
+
+  socket.on('leaveAllianceResult', (data) => {
+    if (data.success) {
+      addLog('Left alliance.', 'info');
+      openAlliancePanel();
+    } else {
+      addLog(`Leave failed: ${data.error}`, 'warning');
+    }
+  });
+
+  socket.on('allianceChatMessage', (data) => {
+    addAllianceChatMessage(data.from, data.message);
+  });
+
+  socket.on('allianceUpdate', (data) => {
+    // Refresh alliance panel if open
+    const title = document.getElementById('side-panel-title');
+    if (title && title.textContent === 'ALLIANCE') {
+      openAlliancePanel();
+    }
+  });
+
+  socket.on('allianceState', (data) => {
+    renderAllianceState(data);
+  });
 }
 
 // --- Game Loop ---
@@ -175,6 +309,7 @@ function showGalaxyView() {
   document.getElementById('btn-galaxy-view').classList.add('active');
   document.getElementById('btn-system-view').classList.remove('active');
   document.getElementById('system-info-overlay').style.display = 'none';
+  document.getElementById('faction-label').style.display = 'none';
   closeContextMenu();
 }
 
@@ -188,6 +323,19 @@ function showSystemView() {
   closeContextMenu();
 }
 
+// Faction colors for display
+const FACTION_COLORS = {
+  solari: '#E74C3C',
+  nexari: '#3498DB',
+  aurani: '#F1C40F',
+};
+
+const FACTION_NAMES = {
+  solari: 'Solari Dominion',
+  nexari: 'Nexari Collective',
+  aurani: 'Aurani Trade Syndicate',
+};
+
 function updateSystemOverlay() {
   if (!currentSystemState) return;
   const overlay = document.getElementById('system-info-overlay');
@@ -200,6 +348,34 @@ function updateSystemOverlay() {
   const playerCount = currentSystemState.ships.filter(s => !s.isNpc).length;
   document.getElementById('system-info-details').textContent =
     `Level ${currentSystemState.level} • ${playerCount} players • ${npcCount} hostiles • ${currentSystemState.miningNodes.length} planets`;
+
+  // Show faction territory
+  const factionEl = document.getElementById('system-info-faction');
+  const factionLabel = document.getElementById('faction-label');
+  if (currentSystemState.faction) {
+    const fName = FACTION_NAMES[currentSystemState.faction] || currentSystemState.faction;
+    const fColor = FACTION_COLORS[currentSystemState.faction] || '#7f8c8d';
+    factionEl.textContent = fName + ' Territory';
+    factionEl.style.color = fColor;
+    factionEl.style.display = 'block';
+    factionLabel.textContent = fName;
+    factionLabel.style.color = fColor;
+    factionLabel.style.borderColor = fColor;
+    factionLabel.style.display = 'block';
+  } else {
+    factionEl.style.display = 'none';
+    factionLabel.style.display = 'none';
+  }
+}
+
+// --- Alliance Tag ---
+function updateAllianceTag() {
+  const el = document.getElementById('alliance-tag-display');
+  if (playerState && playerState.allianceId) {
+    el.textContent = '[' + (playerState.allianceTag || 'ALY') + ']';
+  } else {
+    el.textContent = '';
+  }
 }
 
 // --- Resource Display ---
@@ -283,11 +459,26 @@ function updateShipInfoPanel() {
   }
 
   panel.style.display = 'block';
-  document.getElementById('ship-info-title').textContent = ship.className;
+
+  // Show combat role badge in title
+  let titleHtml = ship.className;
+  if (ship.combatRole) {
+    titleHtml += ` <span class="combat-role-badge ${ship.combatRole}">${ship.combatRole}</span>`;
+  }
+  document.getElementById('ship-info-title').innerHTML = titleHtml;
 
   const stats = document.getElementById('ship-stats');
   const hullPct = Math.round((ship.hull / ship.maxHull) * 100);
   const totalCargo = Math.floor(Object.values(ship.cargo || {}).reduce((a, b) => a + b, 0));
+
+  // Officer info
+  let officerInfo = '--';
+  if (ship.officerId && playerState.officers) {
+    const off = playerState.officers.find(o => o === ship.officerId);
+    if (off && officerData[off]) {
+      officerInfo = officerData[off].name;
+    }
+  }
 
   stats.innerHTML = `
     <div class="stat-row"><span>Hull</span><span class="stat-val ${hullPct > 60 ? 'high' : hullPct > 30 ? 'mid' : 'low'}">${Math.floor(ship.hull)}/${ship.maxHull}</span></div>
@@ -308,7 +499,7 @@ function updateShipInfoPanel() {
   let actionsHtml = '';
 
   if (ship.state === 'damaged') {
-    actionsHtml += `<button class="action-btn danger" onclick="repairShip('${ship.id}')">Repair (30% build cost)</button>`;
+    actionsHtml += `<button class="action-btn danger" onclick="repairShip('${ship.id}')">Repair</button>`;
   } else {
     if (playerState && ship.systemId === playerState.homeSystemId) {
       actionsHtml += `<button class="action-btn" onclick="dockShip('${ship.id}')">Dock</button>`;
@@ -321,6 +512,10 @@ function updateShipInfoPanel() {
       actionsHtml += `<button class="action-btn" onclick="stopShip('${ship.id}')">Stop</button>`;
     }
     actionsHtml += `<button class="action-btn" onclick="recallShip('${ship.id}')">Recall</button>`;
+    // Active ability button
+    if (ship.officerId) {
+      actionsHtml += `<button class="action-btn" style="color:#e67e22;border-color:rgba(230,126,34,0.3);" onclick="activateAbility('${ship.id}')">Maneuver</button>`;
+    }
   }
 
   actions.innerHTML = actionsHtml;
@@ -440,6 +635,11 @@ document.addEventListener('DOMContentLoaded', () => {
       closeContextMenu();
     }
   });
+
+  // Alliance chat enter key
+  document.getElementById('alliance-chat-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendAllianceChat();
+  });
 });
 
 // --- Context Menu (STFC-style right-click on ships) ---
@@ -454,13 +654,27 @@ function showContextMenu(screenX, screenY, ship) {
   menu.style.left = screenX + 'px';
   menu.style.top = screenY + 'px';
 
-  // Header
+  // Header with combat role
   const header = document.createElement('div');
   header.className = 'ctx-header';
   header.style.color = ship.color;
-  header.textContent = `${ship.icon} ${ship.className}`;
-  if (isNpc) header.textContent += ' (Hostile)';
+  let headerText = `${ship.icon} ${ship.className}`;
+  if (isNpc) headerText += ' (Hostile)';
+  if (ship.combatRole) headerText += ` [${ship.combatRole.toUpperCase()}]`;
+  if (ship.allianceTag) headerText = `[${ship.allianceTag}] ` + headerText;
+  header.textContent = headerText;
   menu.appendChild(header);
+
+  // Show combat advantage hint if we have a ship selected
+  if (!isOwn && selectedShipId) {
+    const myShip = getShipData(selectedShipId);
+    if (myShip && myShip.combatRole && ship.combatRole) {
+      const adv = getCombatAdvantageLabel(myShip.combatRole, ship.combatRole);
+      if (adv) {
+        addCtxOption(menu, adv, null, true);
+      }
+    }
+  }
 
   if (isOwn) {
     // Own ship actions
@@ -479,6 +693,9 @@ function showContextMenu(screenX, screenY, ship) {
         addCtxOption(menu, 'Stop', () => stopShip(ship.id));
       }
       addCtxOption(menu, 'Recall to Base', () => recallShip(ship.id));
+      if (ship.officerId) {
+        addCtxOption(menu, 'Captain Maneuver', () => activateAbility(ship.id));
+      }
     }
   } else {
     // Enemy / NPC actions
@@ -500,6 +717,17 @@ function showContextMenu(screenX, screenY, ship) {
   const menuRect = menu.getBoundingClientRect();
   if (menuRect.right > window.innerWidth) menu.style.left = (screenX - menuRect.width) + 'px';
   if (menuRect.bottom > window.innerHeight) menu.style.top = (screenY - menuRect.height) + 'px';
+}
+
+function getCombatAdvantageLabel(myRole, theirRole) {
+  const advantages = { explorer: 'interceptor', interceptor: 'battleship', battleship: 'explorer' };
+  if (advantages[myRole] === theirRole) {
+    return '>> ADVANTAGE (1.5x damage) <<';
+  }
+  if (advantages[theirRole] === myRole) {
+    return '!! DISADVANTAGE (0.7x damage) !!';
+  }
+  return null;
 }
 
 function addCtxOption(menu, label, onclick, disabled) {
@@ -543,6 +771,10 @@ function recallShip(shipId) {
   } else {
     socket.emit('warpShipTo', { shipId, targetSystemId: playerState.homeSystemId });
   }
+}
+
+function activateAbility(shipId) {
+  socket.emit('activateAbility', { shipId });
 }
 
 function showMiningMenu(shipId) {
@@ -606,7 +838,20 @@ function openStarbase() {
   }
   html += '</div></div>';
 
-  // All player ships (from playerState, not just current system)
+  // Buildings summary
+  if (playerState.starbase && playerState.starbase.buildings) {
+    html += '<div class="panel-section-title">Buildings</div>';
+    for (const [bId, bState] of Object.entries(playerState.starbase.buildings)) {
+      const bType = buildingTypes[bId];
+      const bName = bType ? bType.name : bId.replace(/_/g, ' ');
+      html += `<div class="starbase-res-row">
+        <span class="starbase-res-name">${bName}</span>
+        <span class="starbase-res-amount" style="color:#5dade2;">Lv ${bState.level}</span>
+      </div>`;
+    }
+  }
+
+  // All player ships
   html += '<div class="docked-ships"><h4>Fleet</h4>';
   if (playerState && playerState.ships) {
     for (const [shipId, ship] of Object.entries(playerState.ships)) {
@@ -629,10 +874,11 @@ function openStarbase() {
   }
   html += '</div>';
 
-  // Build and Upgrade buttons
-  html += `<div style="margin-top:12px;display:flex;gap:8px;">
+  // Action buttons
+  html += `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
     <button class="build-btn" onclick="openBuildMenu()">BUILD SHIP</button>
     <button class="build-btn" onclick="openUpgradeMenu()">UPGRADE</button>
+    <button class="build-btn" onclick="openBuildingsPanel()">BUILDINGS</button>
   </div>`;
 
   content.innerHTML = html;
@@ -649,14 +895,31 @@ function openBuildMenu() {
   let html = '';
 
   for (const [classId, sc] of Object.entries(shipClasses)) {
+    // Check faction requirement
+    let factionLocked = false;
+    let factionReqText = '';
+    if (sc.faction && playerState.factionRep) {
+      const rep = playerState.factionRep[sc.faction] || 0;
+      const reqRep = sc.factionRepRequired || 0;
+      if (rep < reqRep) {
+        factionLocked = true;
+        const fName = FACTION_NAMES[sc.faction] || sc.faction;
+        factionReqText = `Requires ${fName} rep: ${reqRep}`;
+      }
+    }
+
     html += `<div class="build-item">
       <div class="build-item-header">
         <span class="build-item-name" style="color:${sc.color}">${sc.icon} ${sc.name}</span>
-        <span class="build-item-class">${sc.class}</span>
+        <span class="build-item-class">${sc.class}${sc.combatRole ? ' · ' + sc.combatRole : ''}</span>
       </div>
-      <div class="build-item-desc">${sc.description}</div>
-      <div class="build-item-cost">`;
+      <div class="build-item-desc">${sc.description}</div>`;
 
+    if (factionLocked) {
+      html += `<div class="officer-faction-req">${factionReqText}</div>`;
+    }
+
+    html += '<div class="build-item-cost">';
     let canAfford = true;
     for (const [res, amount] of Object.entries(sc.cost)) {
       const have = playerState.resources[res] || 0;
@@ -665,8 +928,9 @@ function openBuildMenu() {
       html += `<span class="cost-entry ${sufficient ? '' : 'insufficient'}">${res}: ${amount}</span>`;
     }
 
+    const buildDisabled = !canAfford || factionLocked;
     html += `</div>
-      <button class="build-btn" ${canAfford ? '' : 'disabled'} onclick="buildShip('${classId}')">BUILD</button>
+      <button class="build-btn" ${buildDisabled ? 'disabled' : ''} onclick="buildShip('${classId}')">BUILD</button>
     </div>`;
   }
 
@@ -742,6 +1006,513 @@ function openUpgradeMenu() {
 
 function upgradeShip(shipId, component) {
   socket.emit('upgradeShip', { shipId, component });
+}
+
+// --- Side Panel: Buildings ---
+
+function openBuildingsPanel() {
+  const panel = document.getElementById('side-panel');
+  panel.style.display = 'flex';
+  document.getElementById('side-panel-title').textContent = 'BUILDINGS';
+
+  const content = document.getElementById('side-panel-content');
+  let html = '';
+
+  const buildings = playerState.starbase ? playerState.starbase.buildings : {};
+
+  for (const [bId, bType] of Object.entries(buildingTypes)) {
+    const bState = buildings[bId] || { level: 0, upgrading: false };
+    const currentLevel = bState.level;
+    const isMaxed = currentLevel >= 10;
+    const isUpgrading = bState.upgrading;
+
+    html += `<div class="building-item">
+      <div class="building-header">
+        <span class="building-name">${bType.name}</span>
+        <span class="building-level">Level ${currentLevel}/10</span>
+      </div>
+      <div class="building-desc">${bType.description || ''}</div>`;
+
+    // Show current effect
+    if (currentLevel > 0 && bType.levels && bType.levels[currentLevel - 1]) {
+      const effect = bType.levels[currentLevel - 1].effect;
+      if (effect) {
+        const effectText = Object.entries(effect).map(([k, v]) => `${k}: +${Math.round(v * 100)}%`).join(', ');
+        html += `<div class="building-effect">Current: ${effectText}</div>`;
+      }
+    }
+
+    if (isUpgrading) {
+      const timeLeft = Math.max(0, Math.ceil((bState.upgradeCompleteTime - Date.now()) / 1000));
+      html += `<div class="building-upgrading">Upgrading... ${formatTime(timeLeft)}</div>`;
+    } else if (!isMaxed) {
+      const nextLevel = bType.levels[currentLevel];
+      if (nextLevel) {
+        html += '<div class="build-item-cost">';
+        let canAfford = true;
+        for (const [res, amount] of Object.entries(nextLevel.cost)) {
+          const have = playerState.resources[res] || 0;
+          const sufficient = have >= amount;
+          if (!sufficient) canAfford = false;
+          html += `<span class="cost-entry ${sufficient ? '' : 'insufficient'}">${res}: ${formatNum(amount)}</span>`;
+        }
+        html += '</div>';
+
+        // Show next level effect
+        if (nextLevel.effect) {
+          const effectText = Object.entries(nextLevel.effect).map(([k, v]) => `${k}: +${Math.round(v * 100)}%`).join(', ');
+          html += `<div style="font-size:10px;color:#3498db;margin:2px 0;">Next: ${effectText}</div>`;
+        }
+
+        html += `<div style="font-size:10px;color:#7f8c8d;margin:2px 0;">Build time: ${formatTime(nextLevel.buildTime)}</div>`;
+        html += `<button class="upgrade-btn" ${canAfford ? '' : 'disabled'} onclick="upgradeBuilding('${bId}')">UPGRADE TO LEVEL ${currentLevel + 1}</button>`;
+      }
+    } else {
+      html += '<div style="color:#2ecc71;font-size:11px;margin-top:4px;">MAX LEVEL</div>';
+    }
+
+    html += '</div>';
+  }
+
+  content.innerHTML = html;
+}
+
+function upgradeBuilding(buildingId) {
+  socket.emit('upgradeBuilding', { buildingId });
+}
+
+function formatTime(seconds) {
+  if (seconds < 60) return seconds + 's';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm ' + (seconds % 60) + 's';
+  return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
+}
+
+// --- Side Panel: Officers ---
+
+function openOfficersPanel() {
+  const panel = document.getElementById('side-panel');
+  panel.style.display = 'flex';
+  document.getElementById('side-panel-title').textContent = 'OFFICERS';
+
+  const content = document.getElementById('side-panel-content');
+
+  // Tabs: My Officers | Recruit
+  let html = `<div class="panel-tabs">
+    <button class="panel-tab active" onclick="showMyOfficers()">My Officers</button>
+    <button class="panel-tab" onclick="showRecruitOfficers()">Recruit</button>
+  </div>`;
+  html += '<div id="officers-tab-content"></div>';
+  content.innerHTML = html;
+  showMyOfficers();
+}
+
+function showMyOfficers() {
+  // Update tab state
+  const tabs = document.querySelectorAll('.panel-tab');
+  tabs.forEach((t, i) => t.classList.toggle('active', i === 0));
+
+  const container = document.getElementById('officers-tab-content');
+  let html = '';
+
+  const myOfficers = playerState.officers || [];
+  const assignments = playerState.officerAssignments || {};
+
+  if (myOfficers.length === 0) {
+    html += '<div style="color:#7f8c8d;font-size:12px;padding:20px;text-align:center;">No officers recruited yet. Visit the Recruit tab to hire officers.</div>';
+  }
+
+  for (const offId of myOfficers) {
+    const off = officerData[offId];
+    if (!off) continue;
+
+    const rarity = off.rarity || 'common';
+    const assignedShipId = Object.entries(assignments).find(([sid, oid]) => oid === offId)?.[0];
+    const assignedShip = assignedShipId ? getShipData(assignedShipId) : null;
+
+    html += `<div class="officer-item">
+      <div class="officer-header">
+        <span class="officer-name" style="color:${officerRarities[rarity]?.color || '#fff'}">${off.name}</span>
+        <span class="officer-rarity ${rarity}">${rarity}</span>
+      </div>
+      <div class="officer-passive">Passive: ${off.passiveDesc || off.passive}</div>
+      <div class="officer-active">Maneuver: ${off.activeDesc || off.active} (${off.cooldown}s CD)</div>`;
+
+    if (assignedShip) {
+      html += `<div class="officer-assigned">Assigned to: ${assignedShip.className}</div>`;
+      html += `<button class="action-btn" style="margin-top:4px;font-size:10px;" onclick="unassignOfficer('${assignedShipId}')">Unassign</button>`;
+    } else {
+      // Show assign dropdown
+      html += `<div style="margin-top:4px;">
+        <select id="assign-select-${offId}" style="padding:3px 6px;font-size:10px;background:#0d1b2a;border:1px solid rgba(52,152,219,0.3);color:#e0e0e0;border-radius:3px;">
+          <option value="">Assign to ship...</option>`;
+      for (const shipId of playerState.shipIds) {
+        const s = getShipData(shipId);
+        if (s && !assignments[shipId]) {
+          html += `<option value="${shipId}">${s.className}</option>`;
+        }
+      }
+      html += `</select>
+        <button class="action-btn" style="font-size:10px;margin-left:4px;" onclick="assignOfficerFromSelect('${offId}')">Assign</button>
+      </div>`;
+    }
+
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function showRecruitOfficers() {
+  const tabs = document.querySelectorAll('.panel-tab');
+  tabs.forEach((t, i) => t.classList.toggle('active', i === 1));
+
+  const container = document.getElementById('officers-tab-content');
+  let html = '';
+
+  const myOfficers = playerState.officers || [];
+
+  for (const [offId, off] of Object.entries(officerData)) {
+    if (myOfficers.includes(offId)) continue; // Already recruited
+
+    const rarity = off.rarity || 'common';
+    let canRecruit = true;
+    let reqText = '';
+
+    // Check faction rep requirement
+    if (off.faction && off.factionRepRequired) {
+      const rep = (playerState.factionRep && playerState.factionRep[off.faction]) || 0;
+      if (rep < off.factionRepRequired) {
+        canRecruit = false;
+        reqText = `Requires ${FACTION_NAMES[off.faction] || off.faction} rep: ${off.factionRepRequired} (you have: ${rep})`;
+      }
+    }
+
+    html += `<div class="officer-item">
+      <div class="officer-header">
+        <span class="officer-name" style="color:${officerRarities[rarity]?.color || '#fff'}">${off.name}</span>
+        <span class="officer-rarity ${rarity}">${rarity}</span>
+      </div>
+      <div class="officer-passive">Passive: ${off.passiveDesc || off.passive}</div>
+      <div class="officer-active">Maneuver: ${off.activeDesc || off.active} (${off.cooldown}s CD)</div>`;
+
+    if (!canRecruit) {
+      html += `<div class="officer-faction-req">${reqText}</div>`;
+    }
+
+    html += `<button class="build-btn" ${canRecruit ? '' : 'disabled'} onclick="recruitOfficer('${offId}')">RECRUIT</button>
+    </div>`;
+  }
+
+  if (html === '') {
+    html = '<div style="color:#7f8c8d;font-size:12px;padding:20px;text-align:center;">All available officers have been recruited!</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function recruitOfficer(officerId) {
+  socket.emit('recruitOfficer', { officerId });
+}
+
+function assignOfficerFromSelect(officerId) {
+  const select = document.getElementById('assign-select-' + officerId);
+  if (!select || !select.value) return;
+  socket.emit('assignOfficer', { officerId, shipId: select.value });
+}
+
+function unassignOfficer(shipId) {
+  socket.emit('unassignOfficer', { shipId });
+}
+
+// --- Side Panel: Missions ---
+
+function openMissionsPanel() {
+  const panel = document.getElementById('side-panel');
+  panel.style.display = 'flex';
+  document.getElementById('side-panel-title').textContent = 'MISSIONS';
+
+  const content = document.getElementById('side-panel-content');
+
+  // Tabs: Active | Available
+  let html = `<div class="panel-tabs">
+    <button class="panel-tab active" onclick="showActiveMissions()">Active</button>
+    <button class="panel-tab" onclick="showAvailableMissions()">Available</button>
+  </div>`;
+  html += '<div id="missions-tab-content"></div>';
+  content.innerHTML = html;
+  showActiveMissions();
+}
+
+function showActiveMissions() {
+  const tabs = document.querySelectorAll('.panel-tab');
+  tabs.forEach((t, i) => t.classList.toggle('active', i === 0));
+
+  const container = document.getElementById('missions-tab-content');
+  let html = '';
+
+  const activeMissions = playerState.activeMissions || {};
+
+  if (Object.keys(activeMissions).length === 0) {
+    html += '<div style="color:#7f8c8d;font-size:12px;padding:20px;text-align:center;">No active missions. Check Available tab for new missions.</div>';
+  }
+
+  for (const [mId, mState] of Object.entries(activeMissions)) {
+    const mission = mState;
+    const progress = mission.progress || 0;
+    const goal = mission.goal || 1;
+    const pct = Math.min(100, Math.round((progress / goal) * 100));
+    const isComplete = progress >= goal;
+
+    html += `<div class="mission-item">
+      <div class="mission-header">
+        <span class="mission-name">${mission.name || mId}</span>
+        <span class="mission-type ${mission.type || 'daily'}">${mission.type || 'daily'}</span>
+      </div>
+      <div class="mission-desc">${mission.description || ''}</div>
+      <div class="mission-progress">
+        <div class="progress-text">${progress}/${goal} (${pct}%)</div>
+        <div class="progress-bar"><div class="progress-fill ${isComplete ? 'complete' : ''}" style="width:${pct}%"></div></div>
+      </div>`;
+
+    if (mission.rewards) {
+      const rewardText = Object.entries(mission.rewards).map(([k, v]) => `${k}: ${v}`).join(', ');
+      html += `<div class="mission-rewards">Rewards: ${rewardText}</div>`;
+    }
+
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function showAvailableMissions() {
+  const tabs = document.querySelectorAll('.panel-tab');
+  tabs.forEach((t, i) => t.classList.toggle('active', i === 1));
+
+  // Request available missions from server
+  socket.emit('getMissions');
+}
+
+function renderMissionsList(missions) {
+  const container = document.getElementById('missions-tab-content');
+  if (!container) return;
+
+  let html = '';
+
+  if (!missions || missions.length === 0) {
+    html += '<div style="color:#7f8c8d;font-size:12px;padding:20px;text-align:center;">No missions available right now.</div>';
+  }
+
+  for (const mission of (missions || [])) {
+    html += `<div class="mission-item">
+      <div class="mission-header">
+        <span class="mission-name">${mission.name}</span>
+        <span class="mission-type ${mission.type || 'daily'}">${mission.type || 'daily'}</span>
+      </div>
+      <div class="mission-desc">${mission.description || ''}</div>`;
+
+    if (mission.rewards) {
+      const rewardText = Object.entries(mission.rewards).map(([k, v]) => `${k}: ${v}`).join(', ');
+      html += `<div class="mission-rewards">Rewards: ${rewardText}</div>`;
+    }
+
+    html += `<button class="build-btn" onclick="acceptMission('${mission.id}')">ACCEPT</button>
+    </div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function acceptMission(missionId) {
+  socket.emit('acceptMission', { missionId });
+}
+
+// --- Side Panel: Factions ---
+
+function openFactionsPanel() {
+  const panel = document.getElementById('side-panel');
+  panel.style.display = 'flex';
+  document.getElementById('side-panel-title').textContent = 'FACTIONS';
+
+  const content = document.getElementById('side-panel-content');
+  let html = '';
+
+  for (const [fId, faction] of Object.entries(factionData)) {
+    const rep = (playerState.factionRep && playerState.factionRep[fId]) || 0;
+    const color = FACTION_COLORS[fId] || '#5dade2';
+    const fName = faction.name || FACTION_NAMES[fId] || fId;
+
+    // Calculate tier
+    let currentTier = 'Neutral';
+    let nextTierRep = 0;
+    let currentTierRep = 0;
+    if (faction.tiers) {
+      for (const tier of faction.tiers) {
+        if (rep >= tier.minRep) {
+          currentTier = tier.name;
+          currentTierRep = tier.minRep;
+        } else {
+          nextTierRep = tier.minRep;
+          break;
+        }
+      }
+    }
+
+    // Progress bar within current tier
+    const tierRange = nextTierRep > currentTierRep ? nextTierRep - currentTierRep : 1;
+    const tierProgress = nextTierRep > 0 ? Math.min(100, Math.round(((rep - currentTierRep) / tierRange) * 100)) : 100;
+
+    html += `<div class="faction-item">
+      <div class="faction-header">
+        <span class="faction-name" style="color:${color}">${fName}</span>
+        <span class="faction-tier" style="color:${color}">${currentTier}</span>
+      </div>
+      <div class="faction-desc">${faction.description || ''}</div>
+      <div class="faction-rep-bar">
+        <div class="faction-rep-fill" style="width:${tierProgress}%;background:${color}"></div>
+      </div>
+      <div class="faction-rep-text">Reputation: ${rep}${nextTierRep > 0 ? ' / ' + nextTierRep + ' (next tier)' : ' (MAX)'}</div>`;
+
+    if (faction.bonus) {
+      const bonusText = Object.entries(faction.bonus).map(([k, v]) => `${k}: +${Math.round(v * 100)}%`).join(', ');
+      html += `<div class="faction-bonus">Faction bonus: ${bonusText}</div>`;
+    }
+
+    html += '</div>';
+  }
+
+  content.innerHTML = html;
+}
+
+// --- Side Panel: Alliance ---
+
+function openAlliancePanel() {
+  const panel = document.getElementById('side-panel');
+  panel.style.display = 'flex';
+  document.getElementById('side-panel-title').textContent = 'ALLIANCE';
+
+  const content = document.getElementById('side-panel-content');
+
+  if (playerState.allianceId) {
+    // Request alliance state
+    socket.emit('getAlliance');
+    content.innerHTML = '<div style="color:#7f8c8d;font-size:12px;padding:20px;text-align:center;">Loading alliance info...</div>';
+  } else {
+    // Show create/join form
+    let html = '<div class="alliance-create-form">';
+    html += '<div class="panel-section-title">Create Alliance</div>';
+    html += '<input type="text" id="alliance-name-input" placeholder="Alliance Name" maxlength="30">';
+    html += '<input type="text" id="alliance-tag-input" placeholder="Tag (3-5 chars)" maxlength="5">';
+    html += '<button class="build-btn" onclick="createAlliance()">CREATE ALLIANCE</button>';
+    html += '</div>';
+    html += '<div style="color:#7f8c8d;font-size:11px;padding:12px;text-align:center;">Or wait for an invitation from another player.</div>';
+    content.innerHTML = html;
+  }
+}
+
+function renderAllianceState(state) {
+  const content = document.getElementById('side-panel-content');
+  if (!content) return;
+  const title = document.getElementById('side-panel-title');
+  if (!title || title.textContent !== 'ALLIANCE') return;
+
+  let html = '<div class="alliance-info">';
+  html += `<div class="alliance-name-display">[${state.tag}] ${state.name}</div>`;
+  html += `<div style="font-size:11px;color:#7f8c8d;margin-bottom:8px;">${state.members ? state.members.length : 0} members</div>`;
+  html += '</div>';
+
+  html += '<div class="panel-section-title">Members</div>';
+  if (state.members) {
+    for (const member of state.members) {
+      html += `<div class="alliance-member">
+        <span style="color:#ecf0f1">${member.name}</span>
+        <span class="alliance-member-role ${member.role}">${member.role}</span>
+      </div>`;
+    }
+  }
+
+  // Invite player
+  html += '<div class="panel-section-title">Invite Player</div>';
+  html += `<div class="invite-row">
+    <input type="text" id="invite-player-input" placeholder="Player name...">
+    <button class="action-btn" onclick="invitePlayer()">Invite</button>
+  </div>`;
+
+  // Chat and Leave buttons
+  html += `<div style="margin-top:16px;display:flex;gap:8px;">
+    <button class="build-btn" onclick="toggleAllianceChat()">CHAT</button>
+    <button class="build-btn" style="background:linear-gradient(135deg,#922,#c44);border-color:rgba(231,76,60,0.5);" onclick="leaveAlliance()">LEAVE</button>
+  </div>`;
+
+  content.innerHTML = html;
+}
+
+function createAlliance() {
+  const name = document.getElementById('alliance-name-input').value.trim();
+  const tag = document.getElementById('alliance-tag-input').value.trim().toUpperCase();
+  if (!name || !tag) {
+    addLog('Enter alliance name and tag.', 'warning');
+    return;
+  }
+  if (tag.length < 2 || tag.length > 5) {
+    addLog('Tag must be 2-5 characters.', 'warning');
+    return;
+  }
+  socket.emit('createAlliance', { name, tag });
+}
+
+function invitePlayer() {
+  const input = document.getElementById('invite-player-input');
+  const name = input.value.trim();
+  if (!name) return;
+  socket.emit('inviteToAlliance', { targetPlayerName: name });
+  input.value = '';
+}
+
+function leaveAlliance() {
+  if (confirm('Are you sure you want to leave your alliance?')) {
+    socket.emit('leaveAlliance');
+  }
+}
+
+// --- Alliance Chat ---
+
+function toggleAllianceChat() {
+  const panel = document.getElementById('alliance-chat-panel');
+  panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+}
+
+function sendAllianceChat() {
+  const input = document.getElementById('alliance-chat-input');
+  const message = input.value.trim();
+  if (!message) return;
+  socket.emit('allianceChat', { message });
+  input.value = '';
+}
+
+function addAllianceChatMessage(from, message) {
+  const container = document.getElementById('alliance-chat-messages');
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg';
+  msg.innerHTML = `<span class="chat-sender">${from}:</span> ${message}`;
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+
+  // Limit messages
+  while (container.children.length > 100) {
+    container.removeChild(container.firstChild);
+  }
+}
+
+// --- Event Banner ---
+
+function showEventBanner(text) {
+  const banner = document.getElementById('event-banner');
+  document.getElementById('event-banner-text').textContent = text;
+  banner.style.display = 'block';
+  setTimeout(() => {
+    banner.style.display = 'none';
+  }, 3000);
 }
 
 // --- Side Panel: Close ---

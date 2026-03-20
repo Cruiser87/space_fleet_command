@@ -8,7 +8,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const GameEngine = require('./gameEngine');
-const { SHIP_CLASSES, UPGRADE_TIERS, STAR_SYSTEMS } = require('./gameData');
+const { SHIP_CLASSES, UPGRADE_TIERS, STAR_SYSTEMS, FACTIONS, BUILDING_TYPES, OFFICERS, OFFICER_RARITIES, MISSIONS } = require('./gameData');
 
 const PORT = process.env.PORT || 3000;
 
@@ -46,6 +46,10 @@ io.on('connection', (socket) => {
       galaxy: engine.getGalaxyMap(),
       shipClasses: SHIP_CLASSES,
       upgradeTiers: UPGRADE_TIERS,
+      factions: FACTIONS,
+      buildingTypes: BUILDING_TYPES,
+      officers: OFFICERS,
+      officerRarities: OFFICER_RARITIES,
     });
 
     // Auto-view home system
@@ -168,6 +172,169 @@ io.on('connection', (socket) => {
     socket.emit('upgradeResult', { shipId: data.shipId, component: data.component, ...result });
     if (result.success) {
       socket.emit('playerUpdate', engine.getPlayerState(player.id));
+    }
+  });
+
+  // --- UPGRADE BUILDING ---
+  socket.on('upgradeBuilding', (data) => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const result = engine.upgradeBuilding(player.id, data.buildingId);
+    socket.emit('upgradeBuildingResult', result);
+    if (result.success) {
+      socket.emit('playerUpdate', engine.getPlayerState(player.id));
+    }
+  });
+
+  // --- RECRUIT OFFICER ---
+  socket.on('recruitOfficer', (data) => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const result = engine.recruitOfficer(player.id, data.officerId);
+    socket.emit('recruitOfficerResult', result);
+    if (result.success) {
+      socket.emit('playerUpdate', engine.getPlayerState(player.id));
+    }
+  });
+
+  // --- ASSIGN OFFICER ---
+  socket.on('assignOfficer', (data) => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const result = engine.assignOfficer(player.id, data.officerId, data.shipId);
+    socket.emit('assignOfficerResult', result);
+    if (result.success) {
+      socket.emit('playerUpdate', engine.getPlayerState(player.id));
+    }
+  });
+
+  // --- UNASSIGN OFFICER ---
+  socket.on('unassignOfficer', (data) => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const result = engine.unassignOfficer(player.id, data.shipId);
+    socket.emit('unassignOfficerResult', result);
+    if (result.success) {
+      socket.emit('playerUpdate', engine.getPlayerState(player.id));
+    }
+  });
+
+  // --- ACTIVATE ABILITY ---
+  socket.on('activateAbility', (data) => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const result = engine.activateAbility(player.id, data.shipId);
+    socket.emit('activateAbilityResult', result);
+    if (result.success) {
+      socket.emit('playerUpdate', engine.getPlayerState(player.id));
+    }
+  });
+
+  // --- ACCEPT MISSION ---
+  socket.on('acceptMission', (data) => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const result = engine.acceptMission(player.id, data.missionId);
+    socket.emit('acceptMissionResult', result);
+    if (result.success) {
+      socket.emit('playerUpdate', engine.getPlayerState(player.id));
+    }
+  });
+
+  // --- GET AVAILABLE MISSIONS ---
+  socket.on('getMissions', () => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const missions = engine.getAvailableMissions(player.id);
+    socket.emit('missionsList', missions);
+  });
+
+  // --- CREATE ALLIANCE ---
+  socket.on('createAlliance', (data) => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const result = engine.createAlliance(player.id, data.name, data.tag);
+    socket.emit('createAllianceResult', result);
+    if (result.success) {
+      socket.join(`alliance:${result.allianceId}`);
+      socket.emit('playerUpdate', engine.getPlayerState(player.id));
+    }
+  });
+
+  // --- INVITE TO ALLIANCE ---
+  socket.on('inviteToAlliance', (data) => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const result = engine.inviteToAlliance(player.id, data.targetPlayerName);
+    socket.emit('inviteResult', result);
+    if (result.success) {
+      // Notify the invited player
+      const targetPlayer = engine.getPlayerByName(data.targetPlayerName);
+      if (targetPlayer) {
+        io.to(targetPlayer.socketId).emit('allianceInvite', {
+          allianceId: result.allianceId,
+          allianceName: result.allianceName,
+          fromPlayer: player.name,
+        });
+      }
+    }
+  });
+
+  // --- ACCEPT ALLIANCE INVITE ---
+  socket.on('acceptAllianceInvite', (data) => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const result = engine.acceptAllianceInvite(player.id, data.allianceId);
+    socket.emit('acceptInviteResult', result);
+    if (result.success) {
+      socket.join(`alliance:${data.allianceId}`);
+      socket.emit('playerUpdate', engine.getPlayerState(player.id));
+      // Notify alliance members
+      io.to(`alliance:${data.allianceId}`).emit('allianceUpdate', engine.getAllianceState(data.allianceId));
+    }
+  });
+
+  // --- LEAVE ALLIANCE ---
+  socket.on('leaveAlliance', () => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const allianceId = player.allianceId;
+    const result = engine.leaveAlliance(player.id);
+    socket.emit('leaveAllianceResult', result);
+    if (result.success) {
+      socket.leave(`alliance:${allianceId}`);
+      socket.emit('playerUpdate', engine.getPlayerState(player.id));
+      // Notify remaining members
+      if (allianceId) {
+        const allianceState = engine.getAllianceState(allianceId);
+        if (allianceState) {
+          io.to(`alliance:${allianceId}`).emit('allianceUpdate', allianceState);
+        }
+      }
+    }
+  });
+
+  // --- ALLIANCE CHAT ---
+  socket.on('allianceChat', (data) => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player) return;
+    const result = engine.allianceChat(player.id, data.message);
+    if (result.success) {
+      io.to(`alliance:${player.allianceId}`).emit('allianceChatMessage', {
+        from: player.name,
+        message: data.message,
+        timestamp: Date.now(),
+      });
+    }
+  });
+
+  // --- GET ALLIANCE STATE ---
+  socket.on('getAlliance', () => {
+    const player = engine.getPlayerBySocket(socket.id);
+    if (!player || !player.allianceId) return;
+    const state = engine.getAllianceState(player.allianceId);
+    if (state) {
+      socket.emit('allianceState', state);
     }
   });
 

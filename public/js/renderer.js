@@ -70,12 +70,27 @@ class Renderer {
       }
     }
 
+    // Faction territory colors
+    const factionColors = { solari: '#E74C3C', nexari: '#3498DB', aurani: '#F1C40F' };
+
     // Draw systems
     for (const sys of galaxyData) {
       const isHome = sys.id === playerHomeSystem;
       const isSafe = sys.type === 'safe';
       const baseRadius = 12 + (sys.shipCount || 0) * 2;
       const radius = Math.min(baseRadius, 24);
+
+      // Faction territory glow (outer ring)
+      if (sys.faction && factionColors[sys.faction]) {
+        const fColor = factionColors[sys.faction];
+        const fGrad = ctx.createRadialGradient(sys.x, sys.y, radius * 1.5, sys.x, sys.y, radius * 3.5);
+        fGrad.addColorStop(0, fColor + '20');
+        fGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = fGrad;
+        ctx.beginPath();
+        ctx.arc(sys.x, sys.y, radius * 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       // Glow
       const gradient = ctx.createRadialGradient(sys.x, sys.y, 0, sys.x, sys.y, radius * 2.5);
@@ -92,9 +107,17 @@ class Renderer {
       ctx.arc(sys.x, sys.y, radius, 0, Math.PI * 2);
       ctx.fill();
 
-      // Border
-      ctx.strokeStyle = isHome ? '#f1c40f' : (isSafe ? '#2ecc71' : '#e74c3c');
-      ctx.lineWidth = isHome ? 3 : 1.5;
+      // Border — faction color if present, otherwise default
+      if (isHome) {
+        ctx.strokeStyle = '#f1c40f';
+        ctx.lineWidth = 3;
+      } else if (sys.faction && factionColors[sys.faction]) {
+        ctx.strokeStyle = factionColors[sys.faction];
+        ctx.lineWidth = 2;
+      } else {
+        ctx.strokeStyle = isSafe ? '#2ecc71' : '#e74c3c';
+        ctx.lineWidth = 1.5;
+      }
       ctx.stroke();
 
       // System name
@@ -107,6 +130,13 @@ class Renderer {
       ctx.fillStyle = '#7f8c8d';
       ctx.font = '9px "Segoe UI", sans-serif';
       ctx.fillText(`Lv.${sys.level}`, sys.x, sys.y + radius + 28);
+
+      // Faction label on galaxy map
+      if (sys.faction && factionColors[sys.faction]) {
+        ctx.fillStyle = factionColors[sys.faction] + 'AA';
+        ctx.font = '8px "Segoe UI", sans-serif';
+        ctx.fillText(sys.faction.toUpperCase(), sys.x, sys.y + radius + 38);
+      }
 
       // Type indicator
       if (!isSafe) {
@@ -380,10 +410,36 @@ class Renderer {
       ctx.textAlign = 'center';
       ctx.fillText(ship.className, x, y - 18);
     } else {
+      // Alliance tag + ship name
+      let shipLabel = ship.className;
+      if (ship.allianceTag) {
+        shipLabel = `[${ship.allianceTag}] ${shipLabel}`;
+      }
       ctx.fillStyle = isOwn ? '#5dade2' : '#e74c3c';
       ctx.font = '9px "Segoe UI", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(ship.className, x, y - 18);
+      ctx.fillText(shipLabel, x, y - 18);
+    }
+
+    // Combat role indicator (small colored dot)
+    if (ship.combatRole) {
+      const roleColors = { explorer: '#2ecc71', interceptor: '#e74c3c', battleship: '#3498db' };
+      const roleColor = roleColors[ship.combatRole] || '#fff';
+      ctx.fillStyle = roleColor;
+      ctx.beginPath();
+      ctx.arc(x + 18, y - 6, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Active ability glow
+    if (ship.activeAbility) {
+      ctx.strokeStyle = '#e67e22';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.arc(x, y, 24, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     // Kill count badge for player ships
